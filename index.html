@@ -2482,6 +2482,7 @@ let bdFilter = null;
 
 // BizDev seeded contacts from BizDev.xlsx (Biz Dev + Backburner_No + Q2 tabs)
 const BD_SEED = [
+  {id:'bd_epool',status:'Warm',company:'Blue Gem Capital Partners',name:'Elizabeth Pool',email:'e.pool@bluegemcp.com',ld:'2026-05-01',value:0,notes:'Interested in success-fee only basis',owner:'BEV',desc:'',actionLog:[]},
   {id:'bd1',status:'Agreement',company:'alphawestcapital.com',name:'Dale Wang',email:'dale@alphawestcapital.com',ld:'2026-04-27',value:72000,notes:'Await ageement\n\n6 April call\n31 March package\n17 March call\nnugged 9 feb',owner:'BEV',desc:'',actionLog:[]},
   {id:'bd2',status:'Agreement',company:'Zaka',name:'Filip Orth',email:'filip@zaka.vc',ld:'2026-04-27',value:37500,notes:'Await ageement\n\n12.5k - Ben agreement draft\n\n Q3 - offer sent 19 feb, in person meeting Bratislava?',owner:'BEV',desc:'',actionLog:[]},
   {id:'bd3',status:'Agreement',company:'keyhavencapital.com',name:'Lea Yard de Pelleport',email:'lea@keyhavencapital.com',ld:'2026-04-27',value:0,notes:'Call to kick off',owner:'BEV',desc:'',actionLog:[]},
@@ -2493,7 +2494,7 @@ const BD_SEED = [
   {id:'bd9',status:'Agreement',company:'corpus-partners.com',name:'Stig Jensen, Damian Mcnamara',email:'stig.jensen@corpus-partners.com, damian.mcnamara@corpus-partners.com',ld:'2026-05-04',value:0,notes:'22 April asked for slot by link\n1 April chased\nDamian replied to set call early April\n16 March chased\n8 March chased\noffer sent 19 feb',owner:'BEV',desc:'',actionLog:[]},
   {id:'bd10',status:'Agreement',company:'Arete',name:'Robert Ides / Jonathan',email:'robert.ides@arete.eu',ld:'2026-04-28',value:90000,notes:'Later',owner:'BEV',desc:'',actionLog:[]},
   {id:'bd11',status:'Agreement',company:'talostrading.com',name:'Michael D\'Alessio',email:'michael.dalessio@talostrading.com',ld:'2026-05-04',value:90000,notes:'Package 31 March\n30 March call.\nDom to ask if comes to Cyprus. 11/03/2026',owner:'BEV',desc:'',actionLog:[]},
-  {id:'bd12',status:'Agreement',company:'aberdeenplc.com',name:'Alex Ball',email:'Alex.Ball@aberdeenplc.com>',ld:'2026-05-04',value:90000,notes:'Thursday call',owner:'BEV',desc:'',actionLog:[]},
+  {id:'bd12',status:'Agreement',company:'aberdeenplc.com',name:'Alex Ball',email:'Alex.Ball@aberdeenplc.com',ld:'2026-05-04',value:90000,notes:'Thursday call',owner:'BEV',desc:'',actionLog:[]},
   {id:'bd13',status:'Warm',company:'',name:'Andy Murphy,  Brian',email:'andymurphyconsulting@gmail.com, brian@broadwaycap.com',ld:'2026-04-28',value:0,notes:'28 April Chased\n1 April chased\n16 March chased\n8 March chased',owner:'BEV',desc:'',actionLog:[]},
   {id:'bd14',status:'Warm',company:'OMNES CAPITAL',name:'DEDDE François Xavier',email:'francois-xavier.dedde@omnescapital.com',ld:'2026-04-28',value:90000,notes:'May call',owner:'BEV',desc:'',actionLog:[]},
   {id:'bd15',status:'Warm',company:'atalayainvestments.com',name:'Olivier BADIN',email:'ob@atalayainvestments.com',ld:'2026-04-28',value:90000,notes:'28 April Chased\n24 March - dealtracker, Luca intro, Argentina, Belgium firm Spac, Yehudah Moskowitz \n\n17 march lunch\noffer sent 9 feb',owner:'BEV',desc:'',actionLog:[]},
@@ -2503,7 +2504,7 @@ const BD_SEED = [
   {id:'bd19',status:'Warm',company:'Brahma',name:'Andrea Gasparini, Stefan Larsen',email:'andrea.gasparini@brahma-ag.com',ld:'2026-04-28',value:0,notes:'28 April\n\n1 April nudged\n\nI’m working with CBC on the latest development. I’ll let you know\nBehind the scene, we are progressing\n\n8 March chased\noffer sent 22 feb',owner:'BEV',desc:'',actionLog:[]},
   {id:'bd20',status:'Warm',company:'eosimgroup.com',name:'Gianni Galasso EOS PE',email:'g.galasso@eosimgroup.com',ld:'2026-06-10',value:72000,notes:'Q4 . June call set',owner:'BEV',desc:'',actionLog:[]},
   {id:'bd21',status:'Warm',company:'Maind Capital',name:'Andrea Orsi',email:'a.orsi@maindcapital.com',ld:'2026-03-16',value:0,notes:'"Entro fine marzo ti aggiorno e vediamo se/come ripartire con il fundraising"',owner:'BEV',desc:'',actionLog:[]},
-  {id:'bd22',status:'Warm',company:'sablelanecapital.com',name:'Tanaka',email:'tanaka.mawindi@gmail.com, tanaka@sablelanecapital.com',ld:'2026-04-22',value:0,notes:'22 April asked for call\n1 April replied\nQ4\n\n9 march - "Wrapping up my raise here (one more LP left!) then will look into the docs in detail"\n\n8 March chased\nnugged 9 feb  - I haven\'t had a chance to with fires I was putting out but will deep dive into the docs after my trip this week.',owner:'BEV',desc:'',actionLog:[]},
+  {id:'bd22',status:'Warm',company:'sablelanecapital.com',name:'Tanaka',email:'tanaka@sablelanecapital.com',ld:'2026-04-22',value:0,notes:'22 April asked for call\n1 April replied\nQ4\n\n9 march - "Wrapping up my raise here (one more LP left!) then will look into the docs in detail"\n\n8 March chased\nnugged 9 feb  - I haven\'t had a chance to with fires I was putting out but will deep dive into the docs after my trip this week.',owner:'BEV',desc:'',actionLog:[]},
   {id:'bd23',status:'Warm',company:'ma-devco.com',name:'Nijee Cooper',email:'nijee@ma-devco.com',ld:'2026-04-01',value:90000,notes:'1 April nuged\n\nApologies for the delay here. Right now we are going to hold off for a bit as we close out our TTLF Fund. Once we get it fully subscribed, I will reconvene with Scott and Phil on this one to find time to meet with your team. I appreciate your follow up!\n\n16 march chased\noffer sent 12 feb',owner:'BEV',desc:'',actionLog:[]},
   {id:'bd24',status:'Warm',company:'Valhalla Capital Fund Management',name:'Olav',email:'olav@trentx.com',ld:'2026-03-16',value:90000,notes:'16 march chased\noffer sent 12 feb',owner:'BEV',desc:'',actionLog:[]},
   {id:'bd25',status:'Warm',company:'jaggifamilyoffice.com',name:'Ashley Hlastava',email:'ashley@jaggifamilyoffice.com',ld:'2026-03-16',value:90000,notes:'16 march chased\nnugged 9 feb',owner:'BEV',desc:'',actionLog:[]},
@@ -2697,7 +2698,7 @@ const BD_SEED = [
 ];
 
 function initBDContacts(){
-  const BD_VERSION = 4;
+  const BD_VERSION = 5;
   const stored = JSON.parse(localStorage.getItem('bev-bd-contacts')||'[]');
   const storedVersion = parseInt(localStorage.getItem('bev-bd-version')||'0');
   if(stored.length === 0 || storedVersion < BD_VERSION || stored.length < BD_SEED.length * 0.5){
