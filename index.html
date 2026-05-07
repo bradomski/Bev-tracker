@@ -3130,7 +3130,7 @@ function buildBDExpand(b){
     return '<button class="es'+(active?' '+(sc2[s]||''):'')+(active?' active':'')+'" data-bid="'+b.id+'" data-status="'+s+'" onclick="setBDStatus(this.dataset.bid,this.dataset.status);event.stopPropagation()" style="'+(active?'font-weight:700':'opacity:0.5')+'">'+s+'</button>';
   });
   const statusRow = '<div style="margin-bottom:8px;display:flex;align-items:center;flex-wrap:wrap;gap:4px">'
-    + ''
+    + statusBtns.join('')
     + '<button id="bd-save-'+b.id+'" onclick="saveBDStatusChange(\''+b.id+'\');event.stopPropagation()" style="display:none;margin-left:8px;padding:4px 12px;background:var(--gold2);color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer">💾 Save</button>'
     + '</div>';
   const rawLog=Array.isArray(b.actionLog)?b.actionLog:[];
