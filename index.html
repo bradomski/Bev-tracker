@@ -1009,10 +1009,17 @@ function parseRow(r,i){
   const ld        = parseDate(ldRaw);
   const today     = new Date(); today.setHours(12,0,0,0);
   const days      = ld ? Math.round((today-ld)/86400000) : null;
-  return {id:rowId, name, email, company, location, status, owner, lm, ld,
+  // Normalise status — sheet uses '2 Warm','3 Pre Check','4 No','1 Hot'
+  const normStatus = (function(s){
+    const m={'1 Hot':'1 Hot','2 Warm':'2 Warm','3 Pre Check':'3 Pre Check','4 No':'4 No',
+             'Hot':'1 Hot','Warm':'2 Warm','Pre Check':'3 Pre Check','No':'4 No','OOO':'5 OOO'};
+    return m[s]||s||'3 Pre Check';
+  })(status);
+  return {id:rowId, name, email, company, location, status:normStatus, owner, lm, ld,
     ldStr:ld?fmtD(ld):'—', days, desc, action, log, ticketCur, ticketAmt,
+    actionLog: [],  // initialised empty — loaded from localStorage by loadLocal()
     recent:days!==null&&days<=14,
-    stale:days!==null&&days>STALE&&(status==='2 Warm'||status==='3 Pre Check'),
+    stale:days!==null&&days>STALE&&(normStatus==='2 Warm'||normStatus==='3 Pre Check'),
     isFuture:days!==null&&days<0};
 }
 
@@ -3022,8 +3029,8 @@ function renderBizDev(){
     statBar.innerHTML =
       '<div class="stat-cell sc-hot" onclick="bdFilter=\'Agreement\';renderBizDev()" style="cursor:pointer"><div class="stat-n" style="color:var(--hot)">'+nAgr+'</div><div class="stat-l">Agreement</div></div>'
       +'<div class="stat-cell sc-warm" onclick="bdFilter=\'Warm\';renderBizDev()" style="cursor:pointer"><div class="stat-n" style="color:var(--warm)">'+nWrm+'</div><div class="stat-l">Warm</div></div>'
-      +'<div class="stat-cell sc-pre" onclick="bdFilter=\'Review\';renderBizDev()" style="cursor:pointer"><div class="stat-n" style="color:var(--pre)">'+nRev+'</div><div class="stat-l">Pre Check</div></div>'
-      +'<div class="stat-cell" style="background:#f3eefb" onclick="bdFilter=\'To Send Package\';renderBizDev()"><div class="stat-n" style="color:#6b1a8a">'+nSnd+'</div><div class="stat-l">To Send</div></div>'
+      +'<div class="stat-cell sc-pre" onclick="bdFilter=\'Pre Check\';renderBizDev()" style="cursor:pointer"><div class="stat-n" style="color:var(--pre)">'+nRev+'</div><div class="stat-l">Pre Check</div></div>'
+      +'<div class="stat-cell" style="background:#f3eefb" onclick="bdFilter=\'To Send\';renderBizDev()"><div class="stat-n" style="color:#6b1a8a">'+nSnd+'</div><div class="stat-l">To Send</div></div>'
       +'<div class="stat-cell sc-all" onclick="bdFilter=\'Backburner\';renderBizDev()"><div class="stat-n">'+nBck+'</div><div class="stat-l">Backburner</div></div>'
       +'<div class="stat-cell sc-no" onclick="bdFilter=\'No\';renderBizDev()"><div class="stat-n" style="color:var(--no)">'+nNo+'</div><div class="stat-l">No</div></div>'
       +'<div class="stat-cell sc-all" onclick="bdFilter=null;renderBizDev()"><div class="stat-n">'+allContacts.length+'</div><div class="stat-l">All</div></div>'
@@ -3332,11 +3339,18 @@ function renderNewContactsPanel(contacts, client){
 
   panel.innerHTML = html;
 
-  // Insert at top of list area
-  const listArea = document.getElementById('view-' + (isBD ? 'bizdev' : curClient));
+  // Insert at top of the active list area
+  // All client views share #view-leads; BizDev uses #view-bizdev
+  const viewId = isBD ? 'view-bizdev' : 'view-leads';
+  const listArea = document.getElementById(viewId);
   if(listArea){
-    const firstChild = listArea.querySelector('.list') || listArea.firstChild;
+    const firstChild = listArea.querySelector('.leads-list, .list, table') || listArea.firstChild;
     listArea.insertBefore(panel, firstChild);
+    // Scroll to panel so user sees it
+    panel.scrollIntoView({behavior:'smooth', block:'start'});
+  } else {
+    // Fallback: append to body
+    document.body.appendChild(panel);
   }
 }
 
