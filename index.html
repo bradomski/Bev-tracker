@@ -466,7 +466,7 @@ code{font-family:var(--mono)}
 
 
 /* ── New contacts review panel ─────────────────────────────────────────── */
-.new-contacts-panel{background:#FFFBF5;border:2px solid #D97706;border-radius:10px;padding:16px;margin:0 0 18px 0;}
+.new-contacts-panel{background:#FFFBF5;border:2px solid #D97706;border-radius:10px;padding:16px;margin:0 0 18px 0;;max-height:70vh;overflow-y:auto;position:sticky;top:0;z-index:100;}
 .new-contacts-panel h3{margin:0 0 10px 0;font-size:13px;font-weight:700;color:#92400E;display:flex;align-items:center;gap:8px;}
 .new-contacts-panel h3 span.badge{background:#D97706;color:#fff;border-radius:20px;padding:2px 8px;font-size:11px;}
 .nc-row{display:grid;grid-template-columns:1fr 1fr 1fr 90px 80px 80px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #FDE68A;font-size:12px;}
@@ -3315,7 +3315,7 @@ function renderNewContactsPanel(contacts, client){
   const statusLabels = {'2 Warm':'Warm','3 Pre Check':'Pre Check','4 No':'No'};
   const statusClass  = {'2 Warm':'warm','3 Pre Check':'pre','4 No':'no'};
 
-  let html = '<h3>📬 New contacts found in Gmail <span class="badge">' + contacts.length + '</span></h3>';
+  let html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'    + '<h3 style="margin:0">📬 New contacts found in Gmail <span class="badge" id="nc-count">' + contacts.length + '</span></h3>'    + '<span style="font-size:11px;color:#92400E">Scroll to see all · Add or Skip each one</span></div>';
   html += '<div style="font-size:11px;color:#92400E;margin-bottom:8px;">Review and add to tracker — or skip. These were found in your Gmail labels but not yet in the sheet.</div>';
 
   contacts.forEach(function(nc, i){
@@ -3390,7 +3390,24 @@ async function acceptNewContact(idx, client){
     renderBizDev();
   } else {
     // Add to client sheet via POST
-    await fetch(APPS_SCRIPT_URL, {
+    // Add locally first (instant feedback)
+    const newId = Date.now() + '_' + idx;
+    const newContact = {
+      id: newId, name: nc.name, email: nc.email, company: company,
+      location: nc.location || '', status: nc.status || '3 Pre Check',
+      owner: 'BEV', lm: nc.lm || '', ld: nc.ld ? new Date(nc.ld) : null,
+      ldStr: nc.ld ? nc.ld.slice(0,10) : '—',
+      days: nc.ld ? Math.round((new Date()-new Date(nc.ld))/86400000) : null,
+      desc: '', action: '', log: '', ticketCur: '', ticketAmt: '',
+      actionLog: nc.lm ? [{date:nc.ld||'',type:'reply',txt:(nc.lm||'').slice(0,150)}] : [],
+      recent: true
+    };
+    contacts.unshift(newContact);
+    clearClientCache();
+    renderLeads();
+    setSS('saving','Saving…');
+    // Push to sheet in background
+    fetch(APPS_SCRIPT_URL, {
       method: 'POST',
       body: JSON.stringify({action:'add_new', client:client, contact:{
         name:nc.name, email:nc.email, company:company,
@@ -3398,24 +3415,37 @@ async function acceptNewContact(idx, client){
         contactDate:nc.ld||'', introMade:nc.introMade
       }}),
       redirect:'follow'
-    });
-    await loadData();
+    }).then(function(){ setSS('ok','Saved · '+new Date().toLocaleTimeString().slice(0,5)); })
+      .catch(function(e){ setSS('err','Save failed'); });
   }
 
-  // Remove row from panel
+  // Remove the row immediately — no lingering
+  _removeNCRow(idx);
+}
+
+function _removeNCRow(idx){
   const row = document.getElementById('nc-row-' + idx);
-  if(row){ row.style.opacity='0.4'; row.style.textDecoration='line-through'; }
-  const btn = row && row.querySelector('.nc-btn-add');
-  if(btn){ btn.textContent='✓ Added'; btn.disabled=true; }
+  if(row){
+    row.style.transition = 'opacity 0.3s';
+    row.style.opacity = '0';
+    setTimeout(function(){ 
+      row.remove();
+      // Update count badge
+      const remaining = document.querySelectorAll('#nc-panel .nc-row');
+      const badge = document.getElementById('nc-count');
+      if(badge) badge.textContent = remaining.length;
+      // Auto-close when all done
+      if(!remaining.length){
+        const panel = document.getElementById('nc-panel');
+        if(panel) panel.remove();
+      }
+    }, 300);
+  }
+  _pendingNewContacts[idx] = null;
 }
 
 function skipNewContact(idx){
-  const row = document.getElementById('nc-row-' + idx);
-  if(row) row.remove();
-  _pendingNewContacts[idx] = null;
-  // If all rows gone, remove panel
-  const remaining = document.querySelectorAll('.nc-row');
-  if(!remaining.length) document.getElementById('nc-panel')?.remove();
+  _removeNCRow(idx);
 }
 
 async function acceptAllNewContacts(client){
