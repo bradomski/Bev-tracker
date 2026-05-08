@@ -659,12 +659,34 @@ code{font-family:var(--mono)}
             <div class="set-sub">Add or remove client mandates. Each client gets their own login and pipeline view. The client ID is used for login — keep it short, lowercase, no spaces.</div>
             <div id="client-list-ui"></div>
             <div class="set-divider"></div>
-            <div style="font-size:11px;font-weight:500;color:var(--ink2);margin-bottom:8px">Add new client</div>
-            <div class="set-row">
-              <input class="set-inp set-inp-sm" id="new-client-id" placeholder="ID e.g. newclient" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9]/g,'')"/>
-              <input class="set-inp" id="new-client-name" placeholder="Display name e.g. New Capital"/>
-              <input class="set-inp set-inp-sm" id="new-client-pw" placeholder="Password"/>
-              <button class="set-btn" onclick="addClient()">+ Add</button>
+            <div style="font-size:13px;font-weight:600;color:var(--ink2);margin-bottom:12px">➕ Add new client mandate</div>
+            <div style="background:var(--paper2);border-radius:8px;padding:16px;border:1px solid var(--border)">
+              <div class="set-row" style="margin-bottom:10px">
+                <div style="flex:1">
+                  <div style="font-size:10px;font-weight:600;color:var(--ink3);margin-bottom:4px">CLIENT ID <span style="color:var(--ink3);font-weight:400">(short, lowercase, no spaces)</span></div>
+                  <input class="set-inp" id="new-client-id" placeholder="e.g. newfund" style="width:100%" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_]/g,'')"/>
+                </div>
+                <div style="flex:1">
+                  <div style="font-size:10px;font-weight:600;color:var(--ink3);margin-bottom:4px">DISPLAY NAME</div>
+                  <input class="set-inp" id="new-client-name" placeholder="e.g. New Fund Capital" style="width:100%"/>
+                </div>
+                <div style="flex:1">
+                  <div style="font-size:10px;font-weight:600;color:var(--ink3);margin-bottom:4px">PORTAL PASSWORD</div>
+                  <input class="set-inp" id="new-client-pw" placeholder="Client login password" style="width:100%"/>
+                </div>
+              </div>
+              <div style="margin-bottom:10px">
+                <div style="font-size:10px;font-weight:600;color:var(--ink3);margin-bottom:4px">EMAIL SUBJECT KEYWORDS <span style="color:var(--ink3);font-weight:400">— comma separated, used to scan Gmail for replies</span></div>
+                <textarea id="new-client-subjects" class="set-inp" placeholder="e.g. New Fund Introduction, New Fund Capital, Following up - New Fund" style="width:100%;height:60px;resize:vertical;font-family:inherit;font-size:12px"></textarea>
+              </div>
+              <div style="margin-bottom:14px">
+                <div style="font-size:10px;font-weight:600;color:var(--ink3);margin-bottom:4px">CLIENT CONTACT EMAILS <span style="color:var(--ink3);font-weight:400">— comma separated, excluded from contact detection</span></div>
+                <input class="set-inp" id="new-client-emails" placeholder="e.g. john@newfund.com, jane@newfund.com" style="width:100%"/>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px">
+                <button class="set-btn" style="background:var(--gold2);color:#fff;border:none;padding:8px 20px;font-weight:600" onclick="addClientFull()">➕ Add Client</button>
+                <span id="add-client-status" style="font-size:11px;color:var(--ink3)"></span>
+              </div>
             </div>
             <div class="set-ok" id="ok-client">✓ Saved</div>
           </div>
@@ -903,6 +925,7 @@ function switchClient(id,btn){
   curClient=id;expandedId=null;
   // Clear action log (client-specific)
   Object.keys(actionLog).forEach(k=>delete actionLog[k]);
+  // Auto-scan will trigger inside loadData if not scanned today for this client
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
   if(btn)btn.classList.add('on');
   document.getElementById('nb-leads')?.classList.add('on');
@@ -927,6 +950,9 @@ function openSarah(){document.getElementById('s-ov').classList.add('on');documen
 function closeSarah(){document.getElementById('s-ov').classList.remove('on');document.getElementById('s-dr').classList.remove('on');document.getElementById('nb-sarah').classList.remove('on');}
 
 // ═══════════ SYNC STATUS ═══════════
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function safeLm(s,n){var c=(s||'').replace(/[\r\n\t]+/g,' ').replace(/  +/g,' ').trim();return esc(c.length>(n||120)?c.slice(0,n||120)+'\u2026':c);}
+
 function setSS(st,txt){
   const d=document.getElementById('sy-d');
   d.className='sy-dot'+(st==='syncing'||st==='saving'?' pulse':'')+(st==='ok'?' ok':'');
@@ -981,11 +1007,14 @@ async function doRefresh(){
     await refreshBizDev(); // BizDev always live
   } else {
     clearClientCache(); // force live fetch, bypass cache
+    // Reset scan timestamp so Gmail scan also re-runs
+    try{ localStorage.removeItem(scanTimeKey()); }catch(e){}
     await loadData(true);
   }
-  // Scan for new contacts in background
-  const client = isBD ? 'bizdev' : curClient;
-  setTimeout(function(){ scanNewContacts(client, 14); }, 1000);
+  // Scan for new contacts (runs because we cleared scan timestamp)
+  if(!isBD){
+    setTimeout(function(){ scanNewContacts(curClient, 14); }, 1000);
+  }
   if(btn) btn.textContent='↻ Refresh';
 }
 
@@ -1297,7 +1326,7 @@ function renderLeads(){
           ${pill(r.status)}
         </div>
         <div class="lm-msg">
-          ${r.lm?`<div class="lm-msg-text">${r.lm}</div>`:`<div class="lm-msg-empty">No reply yet</div>`}
+          ${r.lm?`<div class="lm-msg-text">${safeLm(r.lm,120)}</div>`:`<div class="lm-msg-empty">No reply yet</div>`}
         </div>
         <div class="lm-days-col" style="padding:0 5px;text-align:center">
           <div class="lm-date-val">${r.ldStr}</div>
@@ -1393,7 +1422,7 @@ function buildExpand(r){
                 const isFirst=li===0;
                 return '<div class="log-item'+(isFirst?' log-item-first':'')+'" style="position:relative;padding-right:20px">'
                   +'<div class="log-dt">'+l.date+(isFirst?' <span style="color:var(--gold2);font-size:8px;font-weight:600">← NEXT</span>':'')+'</div>'
-                  +'<div><span class="lt '+cls+'">'+lbl+'</span>'+l.txt+'</div>'
+                  +'<div><span class="lt '+cls+'">'+lbl+'</span>'+esc(l.txt)+'</div>'
                   +'<button onclick="deleteLogEntry('+r.id+','+li+');event.stopPropagation()" title="Remove entry" style="position:absolute;top:4px;right:3px;background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.2);font-size:10px;line-height:1;padding:2px 3px">✕</button>'
                   +'</div>';
               }).join('') : '<div class="log-item" style="color:var(--ink3)">No activity yet</div>'}
@@ -1448,7 +1477,14 @@ function removeContact(id){
   saveLocal();
   updateCounts();
   renderLeads();
-  pushUpdate(id,{removed:true});
+  // Send proper remove action to archive the row in the sheet
+  if(APPS_SCRIPT_URL && APPS_SCRIPT_URL!=='YOUR_APPS_SCRIPT_URL_HERE'){
+    fetch(APPS_SCRIPT_URL, {
+      method:'POST',
+      body:JSON.stringify({action:'remove', client:curClient, id:id}),
+      redirect:'follow'
+    }).catch(function(e){ console.error('remove error:', e.message); });
+  }
 }
 
 // ── SMART REFRESH — detects new activity from Gmail via Apps Script ──
@@ -1467,9 +1503,10 @@ function removeContact(id){
 // The portal merges newActivity into actionLog + updates last contact dates.
 
 // ── Cache config ────────────────────────────────────────────────────────────
-const CACHE_TTL_MS = 8 * 60 * 60 * 1000; // 8 hours — sync once per day
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours — sync once per day
 const cacheKey = () => 'bev-cache-' + curClient;
 const cacheTimeKey = () => 'bev-cache-ts-' + curClient;
+const scanTimeKey = () => 'bev-scan-ts-' + curClient;
 
 function getCachedRows(){
   try{
@@ -1484,6 +1521,15 @@ function setCachedRows(rows, activity){
     localStorage.setItem(cacheKey(), JSON.stringify({rows, activity}));
     localStorage.setItem(cacheTimeKey(), String(Date.now()));
   }catch(e){}
+}function lastScanWasToday(){
+  try{
+    const ts = parseInt(localStorage.getItem(scanTimeKey())||'0');
+    const d1 = new Date(ts); const d2 = new Date();
+    return d1.getFullYear()===d2.getFullYear() && d1.getMonth()===d2.getMonth() && d1.getDate()===d2.getDate();
+  }catch(e){ return false; }
+}
+function markScannedToday(){
+  try{ localStorage.setItem(scanTimeKey(), String(Date.now())); }catch(e){}
 }
 function clearClientCache(){
   localStorage.removeItem(cacheKey());
@@ -1536,6 +1582,14 @@ async function loadData(forceRefresh){
   updateCounts();
   renderLeads();
   highlightStatCell();
+  // Auto Gmail scan: run once per day in background, no user action needed
+  if(!lastScanWasToday() && APPS_SCRIPT_URL && APPS_SCRIPT_URL!=='YOUR_APPS_SCRIPT_URL_HERE'){
+    markScannedToday();
+    setTimeout(function(){
+      setSS('syncing','Scanning Gmail…');
+      scanNewContacts(curClient, 14);
+    }, 2000); // 2s delay so UI renders first
+  }
 }
 
 async function loadFromSheet(){
@@ -1908,22 +1962,66 @@ function renderAdminList(){
 function flash2(id){const el=document.getElementById(id);if(!el)return;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2500);}
 
 function addClient(){
-  const id=(document.getElementById('new-client-id')?.value||'').trim().toLowerCase();
-  const name=(document.getElementById('new-client-name')?.value||'').trim();
-  const pw=(document.getElementById('new-client-pw')?.value||'').trim();
-  if(!id||!name||!pw){alert('Fill in all three fields — ID, name and password.');return;}
-  if(!/^[a-z0-9]+$/.test(id)){alert('ID must be lowercase letters and numbers only, no spaces.');return;}
-  CLIENTS[id]={name};
-  AUTH.client[id]=pw;
-  saveClientConfig();
-  buildNav(); // refresh sidebar
-  renderSettingsUI();
-  document.getElementById('new-client-id').value='';
-  document.getElementById('new-client-name').value='';
-  document.getElementById('new-client-pw').value='';
-  flash2('ok-client');
+  // Legacy — redirects to new full form
+  addClientFull();
 }
 
+async function addClientFull(){
+  const id       = (document.getElementById('new-client-id')?.value||'').trim();
+  const name     = (document.getElementById('new-client-name')?.value||'').trim();
+  const pw       = (document.getElementById('new-client-pw')?.value||'').trim();
+  const subjRaw  = (document.getElementById('new-client-subjects')?.value||'').trim();
+  const emailRaw = (document.getElementById('new-client-emails')?.value||'').trim();
+  const statusEl = document.getElementById('add-client-status');
+
+  if(!id||!name){ alert('Client ID and Display Name are required.'); return; }
+  if(!pw){ alert('Portal password is required.'); return; }
+  if(!subjRaw){ alert('Please enter at least one email subject keyword so Gmail can detect replies.'); return; }
+
+  const subjects     = subjRaw.split(',').map(s=>s.trim()).filter(Boolean);
+  const clientEmails = emailRaw.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
+  const tabName      = name.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'') + '_Tracker';
+
+  if(statusEl) statusEl.textContent = 'Creating…';
+
+  try {
+    // 1. Add to Apps Script (creates sheet tab + Clients_Config row)
+    if(APPS_SCRIPT_URL && APPS_SCRIPT_URL !== 'YOUR_APPS_SCRIPT_URL_HERE'){
+      const resp = await fetch(APPS_SCRIPT_URL, {
+        method:'POST',
+        body: JSON.stringify({
+          action:'add_client',
+          client:{ id, name, tab:tabName, subjects, clientEmails, status:'LIVE' }
+        }),
+        redirect:'follow'
+      });
+      const data = await resp.json();
+      if(data.error) throw new Error(data.error);
+    }
+
+    // 2. Add to portal AUTH so they can log in immediately
+    AUTH.client[id] = pw;
+
+    // 3. Add to CLIENTS config in portal
+    if(typeof CLIENTS !== 'undefined'){
+      CLIENTS[id] = { name, label:name, status:'live', pw };
+    }
+
+    // 4. Clear fields
+    ['new-client-id','new-client-name','new-client-pw','new-client-subjects','new-client-emails']
+      .forEach(function(eid){ const el=document.getElementById(eid); if(el) el.value=''; });
+
+    if(statusEl) statusEl.textContent = '✅ ' + name + ' added! Refresh sidebar to see.';
+    flash('Client added — refresh to see in sidebar');
+
+    // 5. Rebuild sidebar to show new client
+    setTimeout(function(){ buildNav(); }, 500);
+
+  } catch(e) {
+    if(statusEl) statusEl.textContent = '❌ Error: ' + e.message;
+    console.error('addClientFull error:', e);
+  }
+}
 function removeClient(id){
   if(id==='preston'&&Object.keys(CLIENTS).length===1){alert("Can't remove the last client.");return;}
   if(!confirm('Remove '+CLIENTS[id]?.name+'? Their data in this session will be lost.'))return;
@@ -2734,7 +2832,7 @@ function deleteLogEntry(id, idx){
         +'<span>'+l.date+(isFirst?' <span style="color:var(--gold2);font-size:8px;font-weight:600">← NEXT</span>':'')+'</span>'
         +'<button onclick="deleteLogEntry('+id+','+li+');event.stopPropagation()" style="background:none;border:none;color:rgba(255,100,100,0.5);cursor:pointer;font-size:10px;padding:0 2px">✕</button>'
         +'</div>'
-        +'<div><span class="lt '+cls+'">'+lbl+'</span>'+l.txt+'</div>'
+        +'<div><span class="lt '+cls+'">'+lbl+'</span>'+esc(l.txt)+'</div>'
         +'</div>';
     }).join('');
   }
@@ -3272,6 +3370,7 @@ async function enrichNewContacts(contacts){
 }
 
 async function scanNewContacts(client, days){
+  markScannedToday(); // Mark before fetch so parallel calls don't double-scan
   const btn = document.getElementById('ref-btn');
   if(btn) btn.innerHTML = '<span class="spin"></span>';
   setSS('syncing', 'Scanning for new contacts…');
@@ -3450,9 +3549,12 @@ function skipNewContact(idx){
 
 async function acceptAllNewContacts(client){
   for(let i=0; i<_pendingNewContacts.length; i++){
-    if(_pendingNewContacts[i]) await acceptNewContact(i, client);
+    if(_pendingNewContacts[i]){
+      await acceptNewContact(i, client);
+      await new Promise(function(res){ setTimeout(res,350); });
+    }
   }
-  setTimeout(function(){ document.getElementById('nc-panel')?.remove(); }, 800);
+  setTimeout(function(){ document.getElementById('nc-panel')?.remove(); }, 400);
 }
 
 async function refreshBizDev(){
@@ -3647,8 +3749,14 @@ function saveBDStatusChange(id){
     updateBDLogBox(id);
     saveLocal();
   }
-  // Write to sheet
-  bdWriteToSheet(id, {status:newStatus});
+  // Write to sheet — convert portal display status back to sheet format
+  const sheetStatusMap = {
+    'Agreement':'Agreement','Hot':'1 Hot','Warm':'2 Warm',
+    'Pre Check':'3 Pre Check','No':'4 No','To Send':'To Send Package',
+    'Backburner':'Backburner','Advisor':'Advisor/Collaboration'
+  };
+  const sheetStatus = sheetStatusMap[newStatus] || newStatus;
+  bdWriteToSheet(id, {status:sheetStatus});
   flash2('Saved');
 }
 
