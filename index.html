@@ -1227,7 +1227,16 @@ function updateCounts(){
   const map={latest:nl,hot:nh,warm:nw,pre:np,no:nn,all:na};
   Object.keys(map).forEach(k=>{
     const el=document.getElementById('sn-'+k);
-    if(el)el.textContent=map[k];
+    if(el){
+      const oldVal = el.textContent;
+      el.textContent=map[k];
+      // Flash green briefly if count changed
+      if(oldVal !== String(map[k])){
+        el.style.transition='color 0.3s';
+        el.style.color='#4caf72';
+        setTimeout(function(){ el.style.color=''; }, 1000);
+      }
+    }
   });
 
   // Update ticket cell
@@ -1320,7 +1329,7 @@ function renderLeads(){
           ${displaySub?`<div class="lm-name">${displaySub}</div>`:''}
           ${r.email?`<div class="lm-email">${r.email}</div>`:''}
           ${r.location?`<div class="lm-loc-inline">📍 ${r.location}</div>`:''}
-          ${r.desc?`<div class="lm-desc">${r.desc.slice(0,140)}${r.desc.length>140?'…':''}</div>`:''}
+          ${r.desc?`<div class="lm-desc">${safeLm(r.desc,140)}</div>`:''}
         </div>
         <div class="lm-status" style="padding:0 5px">
           ${pill(r.status)}
@@ -3503,8 +3512,9 @@ async function acceptNewContact(idx, client){
     };
     contacts.unshift(newContact);
     clearClientCache();
-    updateCounts();  // update stat bar immediately
     renderLeads();
+    updateCounts();  // update stat bar after render
+    highlightStatCell();
     setSS('saving','Saving…');
     // Push to sheet in background
     fetch(APPS_SCRIPT_URL, {
