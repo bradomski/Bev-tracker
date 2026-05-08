@@ -1319,7 +1319,7 @@ function renderLeads(){
     return;
   }
   list.innerHTML=data.map((r,i)=>{
-    const isExp=r.id===expandedId;
+    const isExp=r.id==expandedId;
     const displayName=r.company||r.name;
     const displaySub=r.company?r.name:'';
     return`<div class="lead-row${r.stale&&!isExp?' stale':''}${isExp?' exp':''}" id="row-${r.id}">
@@ -1355,7 +1355,10 @@ function renderLeads(){
 
 // ═══════════ EXPAND ═══════════
 function toggleExp(id){
-  expandedId=expandedId===id?null:id;
+  // Coerce: if id looks numeric, use number; else string
+  const _id = isNaN(id) ? id : (typeof id === 'string' ? (id.includes('_') ? id : Number(id)) : id);
+  id = _id;
+  expandedId=expandedId==id?null:id;
   renderLeads();
   if(expandedId){
     setTimeout(()=>{
@@ -3499,7 +3502,7 @@ async function acceptNewContact(idx, client){
   } else {
     // Add to client sheet via POST
     // Add locally first (instant feedback)
-    const newId = Date.now() + idx; // numeric id - works in onclick without quotes
+    const newId = String(Date.now() + idx); // string id — consistent with onclick
     const newContact = {
       id: newId, name: nc.name, email: nc.email, company: company,
       location: nc.location || '', status: nc.status || '3 Pre Check',
