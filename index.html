@@ -3503,6 +3503,7 @@ async function acceptNewContact(idx, client){
     };
     contacts.unshift(newContact);
     clearClientCache();
+    updateCounts();  // update stat bar immediately
     renderLeads();
     setSS('saving','Saving…');
     // Push to sheet in background
