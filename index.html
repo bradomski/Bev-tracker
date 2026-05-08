@@ -1323,7 +1323,7 @@ function renderLeads(){
     const displayName=r.company||r.name;
     const displaySub=r.company?r.name:'';
     return`<div class="lead-row${r.stale&&!isExp?' stale':''}${isExp?' exp':''}" id="row-${r.id}">
-      <div class="lm" onclick="toggleExp(${r.id})">
+      <div class="lm" onclick="toggleExp('${r.id}')">
         <div class="lm-main">
           <div class="lm-company">${displayName}</div>
           ${displaySub?`<div class="lm-name">${displaySub}</div>`:''}
@@ -1394,17 +1394,17 @@ function buildExpand(r){
       <div>
         <div class="exp-sec-lbl">Status</div>
         <div class="exp-row" style="flex-wrap:wrap;gap:5px;margin-bottom:12px">
-          ${['1 Hot','2 Warm','3 Pre Check','4 No','5 OOO'].map(s=>`<button class="es ${s===r.status?SM[s]:''}" onclick="updateStatus(${r.id},'${s}',this);event.stopPropagation()">${pill(s)}</button>`).join('')}
+          ${['1 Hot','2 Warm','3 Pre Check','4 No','5 OOO'].map(s=>`<button class="es ${s===r.status?SM[s]:''}" onclick="updateStatus('${r.id}','${s}',this);event.stopPropagation()">${pill(s)}</button>`).join('')}
         </div>
         <div class="exp-sec-lbl">Owner</div>
         <div class="exp-row" style="margin-bottom:12px;gap:5px">
-          ${(()=>{const clientName=CLIENTS[curClient]?.name||curClient;const opts=['BEV',clientName,'Both'];return opts.map(o=>`<button class="exp-btn ${r.owner===o?'sec':''}" onclick="updateOwner(${r.id},'${o}',this);event.stopPropagation()" style="font-size:10px">${o}</button>`).join('');})()}
+          ${(()=>{const clientName=CLIENTS[curClient]?.name||curClient;const opts=['BEV',clientName,'Both'];return opts.map(o=>`<button class="exp-btn ${r.owner===o?'sec':''}" onclick="updateOwner('${r.id}','${o}',this);event.stopPropagation()" style="font-size:10px">${o}</button>`).join('');})()}
         </div>
         <div class="exp-sec-lbl" style="margin-top:10px">Soft commit / ticket</div>
         <div style="display:flex;gap:0;align-items:center" onclick="event.stopPropagation()">
           <span style="padding:4px 8px;background:#fff;border:1px solid var(--border2);border-right:none;border-radius:3px 0 0 3px;font-family:var(--mono);font-size:13px;color:var(--ink3);line-height:21px">$</span>
           <input class="amt-inp" id="ta-${r.id}" value="${r.ticketAmt||''}" placeholder="e.g. 5M, 500K" onclick="event.stopPropagation()" style="border-radius:0 3px 3px 0"/>
-          <button class="exp-btn" style="height:29px;padding:0 12px;margin-left:7px;border-radius:3px" onclick="saveTicket(${r.id});event.stopPropagation()">Save</button>
+          <button class="exp-btn" style="height:29px;padding:0 12px;margin-left:7px;border-radius:3px" onclick="saveTicket('${r.id}');event.stopPropagation()">Save</button>
           <span class="exp-sv" id="sv-tk-${r.id}">✓</span>
         </div>
         <div style="font-size:9px;color:rgba(255,255,255,0.3);margin-top:5px">USD. Updates gold total immediately.</div>
@@ -1412,7 +1412,7 @@ function buildExpand(r){
         <div class="exp-sec-lbl" style="margin-top:14px">Description <span style="font-size:8px;color:rgba(255,255,255,0.25);text-transform:none;letter-spacing:0">(editable)</span></div>
         <textarea class="exp-ta" id="desc-${r.id}" style="min-height:90px;font-size:10px;line-height:1.5" onclick="event.stopPropagation()">${r.desc||''}</textarea>
         <div style="display:flex;gap:6px;margin-top:4px">
-          <button class="exp-btn sec" onclick="saveDesc(${r.id});event.stopPropagation()" style="font-size:10px">Save description</button>
+          <button class="exp-btn sec" onclick="saveDesc('${r.id}');event.stopPropagation()" style="font-size:10px">Save description</button>
           <span class="exp-sv" id="sv-desc-${r.id}">✓</span>
         </div>
       </div>
@@ -1452,7 +1452,7 @@ function buildExpand(r){
             </div>
             <textarea class="exp-ta" id="ta-note-${r.id}" placeholder="Type your note — call outcome, next step agreed, action taken…" onclick="event.stopPropagation()"></textarea>
             <div class="exp-row">
-              <button class="exp-btn" onclick="saveNote(${r.id});event.stopPropagation()">Save</button>
+              <button class="exp-btn" onclick="saveNote('${r.id}');event.stopPropagation()">Save</button>
               <span class="exp-sv" id="sv-${r.id}">✓ Saved</span>
             </div>
           </div>
@@ -1465,14 +1465,14 @@ function buildExpand(r){
     <!-- Footer: contact info + remove -->
     <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between">
       <span style="font-size:9px;color:rgba(255,255,255,0.2)">ID: ${r.id} · ${r.email||'no email'} · ${r.location||''}</span>
-      <button class="exp-btn" style="background:rgba(139,26,26,0.4);border:1px solid rgba(200,80,80,0.4);color:rgba(255,160,160,0.9);font-size:10px;padding:4px 12px" onclick="removeContact(${r.id});event.stopPropagation()">✕ Remove contact</button>
+      <button class="exp-btn" style="background:rgba(139,26,26,0.4);border:1px solid rgba(200,80,80,0.4);color:rgba(255,160,160,0.9);font-size:10px;padding:4px 12px" onclick="removeContact('${r.id}');event.stopPropagation()">✕ Remove contact</button>
     </div>
 
   </div>`;
 }
 
 function removeContact(id){
-  const r=contacts.find(x=>x.id===id);
+  const r=contacts.find(x=>x.id==id);
   if(!r)return;
   const name=r.company||r.name;
   if(!confirm('Remove "'+name+'" from the tracker?\n\nThis only removes them from this view — it does not affect Gmail labels or the Google Sheet.\n\nIf connected to the sheet, the row will be archived on next sync.'))return;
@@ -1666,7 +1666,7 @@ function mergeGmailActivity(activity){
 function flash(id){const el=document.getElementById(id);if(!el)return;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2200);}
 
 function saveNote(id){
-  const r=contacts.find(x=>x.id===id);if(!r)return;
+  const r=contacts.find(x=>x.id==id);if(!r)return;
   const ta=document.getElementById('ta-note-'+id);
   const typeEl=document.getElementById('ta-type-'+id);
   const type=(typeEl?.value)||'call-note';
@@ -1713,7 +1713,7 @@ function saveNote(id){
 }
 
 function updateStatus(id,newStatus,btn){
-  const r=contacts.find(x=>x.id===id);if(!r)return;
+  const r=contacts.find(x=>x.id==id);if(!r)return;
   const old=r.status;r.status=newStatus;
   r.stale=r.days>STALE&&(newStatus==='2 Warm'||newStatus==='3 Pre Check');
   // Update buttons
@@ -1734,7 +1734,7 @@ function updateStatus(id,newStatus,btn){
 
 
 function saveDesc(id){
-  const r=contacts.find(x=>x.id===id);if(!r)return;
+  const r=contacts.find(x=>x.id==id);if(!r)return;
   const ta=document.getElementById('ed-desc-'+id);
   if(!ta)return;
   r.desc=ta.value;
@@ -1743,7 +1743,7 @@ function saveDesc(id){
   pushUpdate(id,{desc:r.desc});
 }
 function saveTicket(id){
-  const r=contacts.find(x=>x.id===id);if(!r)return;
+  const r=contacts.find(x=>x.id==id);if(!r)return;
   const amt=(document.getElementById('ta-'+id)?.value||'').trim();
   r.ticketCur='USD'; r.ticketAmt=amt;
   // Update badge in list row
@@ -1760,7 +1760,7 @@ function saveTicket(id){
 }
 
 function updateOwner(id,newOwner,btn){
-  const r=contacts.find(x=>x.id===id);if(!r)return;
+  const r=contacts.find(x=>x.id==id);if(!r)return;
   r.owner=newOwner;
   // Update buttons
   const row=document.getElementById(`row-${id}`);
@@ -1823,7 +1823,7 @@ function renderWeekly(){
   function wi(r){
     const done=weeklyDone.has(r.id);
     const dn=r.company||r.name;
-    return`<div class="wi${done?' done':''}" onclick="goToLead(${r.id})">
+    return`<div class="wi${done?' done':''}" onclick="goToLead('${r.id}')">
       <div class="wi-av" style="${avS(dn)}">${ini(dn)}</div>
       <div class="wi-body">
         <div style="display:flex;align-items:center;gap:6px"><div class="wi-nm">${dn}</div>${pill(r.status)}</div>
@@ -1832,7 +1832,7 @@ function renderWeekly(){
       </div>
       <div class="wi-r">
         <div class="wi-dt">${r.ldStr} · ${r.days}d</div>
-        ${!done?`<button class="wi-db" onclick="markDone(${r.id},event)">✓ Done</button>`:'<div style="font-size:9px;color:var(--hot);font-weight:600;margin-top:3px">✓ Done</div>'}
+        ${!done?`<button class="wi-db" onclick="markDone('${r.id}',event)">✓ Done</button>`:'<div style="font-size:9px;color:var(--hot);font-weight:600;margin-top:3px">✓ Done</div>'}
       </div>
     </div>`;
   }
@@ -2846,7 +2846,7 @@ function deleteLogEntry(id, idx){
     }).join('');
   }
   // Update next action in list row
-  const r=contacts.find(x=>x.id===id);
+  const r=contacts.find(x=>x.id==id);
   if(r&&actionLog[id].length){r.action=actionLog[id][0].txt;}
   const row=document.getElementById('row-'+id);
   if(row){const ac=row.querySelector('.lm-action-txt');if(ac)ac.innerHTML=getLastLog(r||{id,action:''});}
@@ -3499,7 +3499,7 @@ async function acceptNewContact(idx, client){
   } else {
     // Add to client sheet via POST
     // Add locally first (instant feedback)
-    const newId = Date.now() + '_' + idx;
+    const newId = Date.now() + idx; // numeric id - works in onclick without quotes
     const newContact = {
       id: newId, name: nc.name, email: nc.email, company: company,
       location: nc.location || '', status: nc.status || '3 Pre Check',
