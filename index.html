@@ -3668,7 +3668,7 @@ async function acceptNewContact(idx, client){
       owner: 'BEV', lm: nc.lm || '', ld: nc.ld ? new Date(nc.ld) : null,
       ldStr: nc.ld ? nc.ld.slice(0,10) : '—',
       days: nc.ld ? Math.round((new Date()-new Date(nc.ld))/86400000) : null,
-      desc: '', action: '', log: '', ticketCur: '', ticketAmt: '',
+      desc: nc.desc || '', action: '', log: '', ticketCur: '', ticketAmt: '',
       actionLog: nc.lm ? [{date:nc.ld||'',type:'reply',txt:(nc.lm||'').slice(0,150)}] : [],
       recent: true
     };
@@ -3700,7 +3700,8 @@ async function acceptNewContact(idx, client){
       body: JSON.stringify({action:'add_new', client:client, contact:{
         name:nc.name, email:nc.email, company:company,
         status:nc.status, owner:'BEV', lm:nc.lm||'',
-        contactDate:nc.ld||'', introMade:nc.introMade
+        contactDate:nc.ld||'', introMade:nc.introMade,
+        desc: nc.desc || '', location: nc.location || ''
       }}),
       redirect:'follow'
     }).then(function(){ setSS('ok','Saved · '+new Date().toLocaleTimeString().slice(0,5)); })
