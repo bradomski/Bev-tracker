@@ -854,7 +854,16 @@ function doLogin(){
   document.getElementById('sb-av').textContent=curUser[0];
   document.getElementById('sb-nm').textContent=curUser;
   document.getElementById('tb-badge').textContent=role==='admin'?'Admin':'Client';
-  buildNav(); loadData(); document.getElementById('ref-btn').style.display=(role==='admin'?'':'none');document.getElementById('dl-btn').style.display=(role==='admin'?'':'none'); if(role==='admin'){initBDContacts();initTasks();initRetainers();showView('dashboard');}
+  buildNav(); loadData(); document.getElementById('ref-btn').style.display=(role==='admin'?'':'none');document.getElementById('dl-btn').style.display=(role==='admin'?'':'none'); if(role==='admin'){initBDContacts();
+    initTasks();      // async — loads from sheet
+    initRetainers();  // async — loads from sheet
+    // Load forecast from sheet
+    if(APPS_SCRIPT_URL && APPS_SCRIPT_URL!=='YOUR_APPS_SCRIPT_URL_HERE'){
+      loadForecastFromSheet().then(function(fc){
+        if(fc && Object.keys(fc).length>0) try{ localStorage.setItem(FORECAST_KEY,JSON.stringify(fc)); }catch(e){}
+      }).catch(function(){});
+    }
+    showView('dashboard');}
 }
 function cap(s){return s.charAt(0).toUpperCase()+s.slice(1);}
 
@@ -1758,7 +1767,11 @@ function saveNote(id){
   }
   saveLocal();
   flash('sv-'+id);
-  pushUpdate(id,{action:txt,lastLog:entry});
+  // Write full action log to sheet so all team members see full history
+  const _fullLog = (actionLog[id]||[]).map(function(e){
+    return '['+e.date+'] '+(e.type||'').toUpperCase()+': '+e.txt;
+  }).join(' | ');
+  pushUpdate(id,{action:txt, lastLog:entry, fullLog:_fullLog});
 }
 
 function updateStatus(id,newStatus,btn){
@@ -2147,9 +2160,14 @@ const RETAINER_SEED = {
   'nemysis':   {monthlyAmt:0, nextInvoice:'', successAmt:0,     successPct:1, mandateEnd:'Ended', contact:'Max Kendall', email:'kendall@nemysisltd.com', past:true, pastName:'Nemysis'},
 };
 
-function initRetainers(){
-  const existing = loadRetainers();
-  if(Object.keys(existing).length === 0){ saveRetainers(RETAINER_SEED); }
+async function initRetainers(){
+  if(APPS_SCRIPT_URL && APPS_SCRIPT_URL!=='YOUR_APPS_SCRIPT_URL_HERE'){
+    const existing = await loadRetainersFromSheet();
+    if(Object.keys(existing).length === 0){ saveRetainers(RETAINER_SEED); }
+  } else {
+    const existing = loadRetainers();
+    if(Object.keys(existing).length === 0){ saveRetainers(RETAINER_SEED); }
+  }
 }
 
 
@@ -2185,37 +2203,39 @@ function saveBDToSheet(b, fields){
 }
 
 const FORECAST_KEY = 'bev_forecast_v1';
+async function loadForecastFromSheet(){
+  try {
+    const r = await fetch(APPS_SCRIPT_URL+'?action=get_settings&t='+Date.now(), {redirect:'follow'});
+    const d = await r.json();
+    if(d.settings && d.settings.forecast){
+      try{ localStorage.setItem(FORECAST_KEY, JSON.stringify(d.settings.forecast)); }catch(e){}
+      return d.settings.forecast;
+    }
+  } catch(e) { console.error('loadForecast sheet error:', e); }
+  try{ return JSON.parse(localStorage.getItem(FORECAST_KEY)||'{}'); }catch(e){ return {}; }
+}
 function loadForecast(){ try{ return JSON.parse(localStorage.getItem(FORECAST_KEY)||'{}'); }catch(e){ return {}; } }
-function saveForecast(d){ try{ localStorage.setItem(FORECAST_KEY,JSON.stringify(d)); }catch(e){} }
+
+function saveForecast(d){
+  try{ localStorage.setItem(FORECAST_KEY,JSON.stringify(d)); }catch(e){}
+  if(APPS_SCRIPT_URL && APPS_SCRIPT_URL!=='YOUR_APPS_SCRIPT_URL_HERE'){
+    setSS('saving','Saving…');
+    fetch(APPS_SCRIPT_URL,{
+      method:'POST',
+      body:JSON.stringify({action:'save_setting', key:'forecast', value:d}),
+      redirect:'follow'
+    }).then(function(){ setSS('ok','Saved · '+new Date().toLocaleTimeString().slice(0,5)); })
+      .catch(function(e){ setSS('err','Save failed'); });
+  }
+}
 
 function editForecast(){
   const f = loadForecast();
-  const years = f.years || [
-    {year:2022,retainer:0,success:0,retainerTarget:0,successTarget:0},
-    {year:2023,retainer:0,success:0,retainerTarget:0,successTarget:0},
-    {year:2024,retainer:0,success:0,retainerTarget:0,successTarget:0},
-    {year:2025,retainer:0,success:0,retainerTarget:0,successTarget:0},
-    {year:2026,retainer:0,success:0,retainerTarget:0,successTarget:0},
-    {year:2027,retainer:0,success:0,retainerTarget:0,successTarget:0},
-    {year:2028,retainer:0,success:0,retainerTarget:0,successTarget:0},
-  ];
-  const lines = years.map(y=>
-    y.year+': retainer='+( y.retainer||0)+', success='+(y.success||0)+
-    ', targetRet='+(y.retainerTarget||0)+', targetSucc='+(y.successTarget||0)
-  ).join('\n');
-  const input = prompt(
-    'Edit forecast — format: YEAR: retainer=X, success=X, targetRet=X, targetSucc=X\n\n'+
-    'Paste all lines (one per year):',
-    lines
-  );
-  if(!input) return;
-  const parsed = input.split('\n').map(line=>{
-    const m = line.match(/(\d{4}).*?retainer=(\d+).*?success=(\d+).*?targetRet=(\d+).*?targetSucc=(\d+)/);
-    if(!m) return null;
-    return {year:parseInt(m[1]),retainer:parseFloat(m[2]),success:parseFloat(m[3]),retainerTarget:parseFloat(m[4]),successTarget:parseFloat(m[5])};
-  }).filter(Boolean);
-  if(!parsed.length){ alert('Could not parse — check the format.'); return; }
-  saveForecast({...f, years: parsed});
+  const r = prompt('Monthly retainer target (€):', f.retainerTarget||0);
+  if(r===null) return;
+  const s = prompt('Annual success fee target (€):', f.successTarget||0);
+  if(s===null) return;
+  saveForecast({...f, retainerTarget:parseFloat(r)||0, successTarget:parseFloat(s)||0});
   renderDashboard();
 }
 
@@ -2338,10 +2358,57 @@ function removeSuccessFeeClient(clientId){
   renderDashboard();
 }
 
+async function loadRetainersFromSheet(){
+  try {
+    const r = await fetch(APPS_SCRIPT_URL+'?action=get_settings&t='+Date.now(), {redirect:'follow'});
+    const d = await r.json();
+    if(d.settings && d.settings.retainers){
+      try{ localStorage.setItem(RETAINER_KEY, JSON.stringify(d.settings.retainers)); }catch(e){}
+      return d.settings.retainers;
+    }
+  } catch(e) { console.error('loadRetainers sheet error:', e); }
+  try{ return JSON.parse(localStorage.getItem(RETAINER_KEY)||'{}'); }catch(e){ return {}; }
+}
 function loadRetainers(){ try{ return JSON.parse(localStorage.getItem(RETAINER_KEY)||'{}'); }catch(e){ return {}; } }
-function saveRetainers(d){ try{ localStorage.setItem(RETAINER_KEY,JSON.stringify(d)); }catch(e){} }
+function saveRetainers(d){
+  try{ localStorage.setItem(RETAINER_KEY,JSON.stringify(d)); }catch(e){}
+  if(APPS_SCRIPT_URL && APPS_SCRIPT_URL!=='YOUR_APPS_SCRIPT_URL_HERE'){
+    setSS('saving','Saving…');
+    fetch(APPS_SCRIPT_URL,{
+      method:'POST',
+      body:JSON.stringify({action:'save_setting', key:'retainers', value:d}),
+      redirect:'follow'
+    }).then(function(){ setSS('ok','Saved · '+new Date().toLocaleTimeString().slice(0,5)); })
+      .catch(function(e){ setSS('err','Save failed'); });
+  }
+}
+async function loadTasksFromSheet(){
+  // Load tasks from sheet, fall back to localStorage cache
+  try {
+    const r = await fetch(APPS_SCRIPT_URL+'?action=get_tasks&t='+Date.now(), {redirect:'follow'});
+    const d = await r.json();
+    if(d.tasks){
+      try{ localStorage.setItem(TASKS_KEY, JSON.stringify(d.tasks)); }catch(e){}
+      return d.tasks;
+    }
+  } catch(e) { console.error('loadTasks sheet error:', e); }
+  // Fallback to cache
+  try{ return JSON.parse(localStorage.getItem(TASKS_KEY)||'[]'); }catch(e){ return []; }
+}
 function loadTasks(){ try{ return JSON.parse(localStorage.getItem(TASKS_KEY)||'[]'); }catch(e){ return []; } }
-function saveTasks(d){ try{ localStorage.setItem(TASKS_KEY,JSON.stringify(d)); }catch(e){} }
+function saveTasks(d){
+  // Write to sheet (primary) + localStorage (cache)
+  try{ localStorage.setItem(TASKS_KEY,JSON.stringify(d)); }catch(e){}
+  if(APPS_SCRIPT_URL && APPS_SCRIPT_URL!=='YOUR_APPS_SCRIPT_URL_HERE'){
+    setSS('saving','Saving…');
+    fetch(APPS_SCRIPT_URL,{
+      method:'POST',
+      body:JSON.stringify({action:'save_tasks', tasks:d}),
+      redirect:'follow'
+    }).then(function(){ setSS('ok','Saved · '+new Date().toLocaleTimeString().slice(0,5)); })
+      .catch(function(e){ setSS('err','Save failed'); });
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // DASHBOARD
@@ -2366,9 +2433,17 @@ const TASK_SEED = [
   {id:'ts14',person:'Dom',text:'Email check inbox — Alaluz',client:'Alaluz Capital',done:false},
 ];
 
-function initTasks(){
-  const existing = loadTasks();
-  if(existing.length === 0){ saveTasks(TASK_SEED); }
+async function initTasks(){
+  // Always load from sheet first
+  if(APPS_SCRIPT_URL && APPS_SCRIPT_URL!=='YOUR_APPS_SCRIPT_URL_HERE'){
+    const tasks = await loadTasksFromSheet();
+    if(tasks.length === 0){ saveTasks(TASK_SEED); }
+  } else {
+    const existing = loadTasks();
+    if(existing.length === 0){ saveTasks(TASK_SEED); }
+  }
+  renderTasksView();
+  renderDashboard();
 }
 
 
@@ -2820,6 +2895,7 @@ function moveTask(id, dir){
   tasks[idx] = tasks[targetSib.i];
   tasks[targetSib.i] = t;
   saveTasks(tasks);
+  renderTasksView();
   renderDashboard();
 }
 
@@ -2832,6 +2908,7 @@ function addTask(){
   const tasks = loadTasks();
   tasks.push({id:'t'+Date.now(), person:person.trim(), text:text.trim(), client:client?client.trim():'', done:false});
   saveTasks(tasks);
+  renderTasksView();
   renderDashboard();
 }
 function addTaskFor(client, person){
@@ -2840,6 +2917,7 @@ function addTaskFor(client, person){
   const tasks = loadTasks();
   tasks.push({id:'t'+Date.now(), person:person, text:text.trim(), client:client, done:false});
   saveTasks(tasks);
+  renderTasksView();
   renderDashboard();
 }
 function toggleTask(id){
@@ -2904,6 +2982,7 @@ function deleteLogEntry(id, idx){
 function deleteTask(id){
   const tasks = loadTasks().filter(x=>x.id!==id);
   saveTasks(tasks);
+  renderTasksView();
   renderDashboard();
 }
 
@@ -3467,50 +3546,84 @@ function renderNewContactsPanel(contacts, client){
   const panel = document.createElement('div');
   panel.className = 'new-contacts-panel';
   panel.id = 'nc-panel';
+  panel.style.cssText = 'background:#FFFBF5;border:2px solid #D97706;border-radius:10px;margin:0 0 12px 0;overflow:hidden;';
 
   const isBD = client === 'bizdev';
   const statusLabels = {'2 Warm':'Warm','3 Pre Check':'Pre Check','4 No':'No'};
   const statusClass  = {'2 Warm':'warm','3 Pre Check':'pre','4 No':'no'};
+  const count = contacts.length;
 
-  let html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'    + '<h3 style="margin:0">📬 New contacts found in Gmail <span class="badge" id="nc-count">' + contacts.length + '</span></h3>'    + '<span style="font-size:11px;color:#92400E">Scroll to see all · Add or Skip each one</span></div>';
-  html += '<div style="font-size:11px;color:#92400E;margin-bottom:8px;">Review and add to tracker — or skip. These were found in your Gmail labels but not yet in the sheet.</div>';
+  // ── Collapsed header (always visible) ───────────────────────────
+  const header = document.createElement('div');
+  header.id = 'nc-header';
+  header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:10px 16px;cursor:pointer;user-select:none;';
+  header.innerHTML = '<div style="display:flex;align-items:center;gap:10px">'
+    + '<span style="font-size:15px">📬</span>'
+    + '<span style="font-weight:600;font-size:13px;color:#92400E">New contacts found in Gmail</span>'
+    + '<span class="badge" id="nc-count" style="background:#D97706;color:#fff;border-radius:10px;padding:2px 8px;font-size:11px;font-weight:700">'+count+'</span>'
+    + '</div>'
+    + '<div style="display:flex;align-items:center;gap:12px">'
+    + '<span style="font-size:11px;color:#92400E;font-style:italic">Click to review</span>'
+    + '<span id="nc-chevron" style="font-size:14px;color:#D97706;transition:transform 0.2s">▼</span>'
+    + '</div>';
+  panel.appendChild(header);
+
+  // ── Collapsible body ─────────────────────────────────────────────
+  const body = document.createElement('div');
+  body.id = 'nc-body';
+  body.style.cssText = 'max-height:0;overflow:hidden;transition:max-height 0.3s ease;';
+
+  let bodyHtml = '<div style="padding:0 16px 12px 16px">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding-top:8px;border-top:1px solid #FBBF24">'
+    + '<span style="font-size:11px;color:#92400E">Review each contact — Add to tracker or Skip</span>'
+    + '<div style="display:flex;gap:8px">'
+    + '<button class="nc-btn-add" data-client="'+client+'" onclick="acceptAllNewContacts(this.dataset.client)" style="font-size:11px;padding:4px 12px;background:#D97706;color:#fff;border:none;border-radius:5px;cursor:pointer">✓ Add All</button>'
+    + '<button class="nc-btn-skip" onclick="dismissNewContacts()" style="font-size:11px;padding:4px 12px;background:none;border:1px solid #D97706;color:#D97706;border-radius:5px;cursor:pointer">✕ Dismiss All</button>'
+    + '</div></div>';
 
   contacts.forEach(function(nc, i){
-    const sLabel = statusLabels[nc.status] || nc.status;
-    const sCls   = statusClass[nc.status] || 'pre';
-    const company = nc.company || nc.email.split('@')[1] || '';
-    html += '<div class="nc-row" id="nc-row-' + i + '">'
-      + '<div class="nc-name">' + nc.name + (nc.introMade ? ' <span class="nc-intro-badge">Intro</span>' : '') + '</div>'
-      + '<div class="nc-company">' + company + '</div>'
-      + '<div class="nc-lm" title="' + (nc.lm||'').replace(/"/g,"'") + '">' + (nc.lm||nc.subject||'').slice(0,60) + (nc.lm && nc.lm.length>60?'…':'') + '</div>'
-      + '<div><span class="nc-status ' + sCls + '">' + sLabel + '</span></div>'
-      + '<button class="nc-btn-add" data-idx="' + i + '" data-client="' + client + '" onclick="acceptNewContact(+this.dataset.idx,this.dataset.client)">✓ Add</button>'
-      + '<button class="nc-btn-skip" onclick="skipNewContact(' + i + ')">✕ Skip</button>'
+    const statusLabel = statusLabels[nc.status] || nc.status || 'Pre Check';
+    const statusCls   = statusClass[nc.status]  || 'pre';
+    const lmPreview   = safeLm(nc.lm, 80);
+    bodyHtml += '<div class="nc-row" id="nc-row-'+i+'" style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #FEF3C7">'
+      + '<div style="flex:1;min-width:0">'
+      + '<span style="font-weight:600;font-size:12px">'+esc(nc.name||'Unknown')+'</span>'
+      + '<span style="font-size:11px;color:#666;margin-left:6px">'+esc(nc.company||nc.email||'')+'</span>'
+      + (lmPreview ? '<div style="font-size:11px;color:#888;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+lmPreview+'</div>' : '')
+      + '</div>'
+      + '<span class="pill '+statusCls+'" style="flex-shrink:0;font-size:10px">'+statusLabel+'</span>'
+      + '<button class="nc-btn-add" onclick="acceptNewContact('+i+',''+client+'')" style="flex-shrink:0;font-size:11px;padding:3px 10px;background:#D97706;color:#fff;border:none;border-radius:4px;cursor:pointer">Add</button>'
+      + '<button class="nc-btn-skip" onclick="skipNewContact('+i+')" style="flex-shrink:0;font-size:11px;padding:3px 10px;background:none;border:1px solid #ccc;color:#666;border-radius:4px;cursor:pointer">Skip</button>'
       + '</div>';
   });
+  bodyHtml += '</div>';
+  body.innerHTML = bodyHtml;
+  panel.appendChild(body);
 
-  html += '<div style="margin-top:10px;display:flex;gap:8px;">'
-    + '<button class="nc-btn-add" data-client="' + client + '" onclick="acceptAllNewContacts(this.dataset.client)">✓ Add All</button>'
-    + '<button class="nc-btn-skip" onclick="document.getElementById(&quot;nc-panel&quot;).remove()">Dismiss All</button>'
-    + '</div>';
+  // ── Toggle logic ─────────────────────────────────────────────────
+  var expanded = false;
+  header.addEventListener('click', function(){
+    expanded = !expanded;
+    body.style.maxHeight = expanded ? '65vh' : '0';
+    body.style.overflowY = expanded ? 'auto' : 'hidden';
+    document.getElementById('nc-chevron').style.transform = expanded ? 'rotate(180deg)' : '';
+    if(expanded){
+      header.querySelector('span[style*="italic"]').textContent = 'Scroll to see all · Add or Skip each';
+    } else {
+      header.querySelector('span[style*="italic"]').textContent = 'Click to review';
+    }
+  });
 
-  panel.innerHTML = html;
-
-  // Insert at top of the active list area
-  // All client views share #view-leads; BizDev uses #view-bizdev
+  // ── Insert at top of active list ─────────────────────────────────
   const viewId = isBD ? 'view-bizdev' : 'view-leads';
   const listArea = document.getElementById(viewId);
   if(listArea){
-    const firstChild = listArea.querySelector('.leads-list, .list, table') || listArea.firstChild;
-    listArea.insertBefore(panel, firstChild);
-    // Scroll to panel so user sees it
-    panel.scrollIntoView({behavior:'smooth', block:'start'});
+    const firstChild = listArea.querySelector('.leads-list, .list, table, #lead-list') || listArea.firstChild;
+    listArea.insertBefore(panel, listArea.firstChild);
   } else {
-    // Fallback: append to body
     document.body.appendChild(panel);
   }
 }
-
 async function acceptNewContact(idx, client){
   const nc = _pendingNewContacts[idx];
   if(!nc) return;
@@ -3603,20 +3716,29 @@ function _removeNCRow(idx){
   if(row){
     row.style.transition = 'opacity 0.3s';
     row.style.opacity = '0';
-    setTimeout(function(){ 
+    setTimeout(function(){
       row.remove();
-      // Update count badge
       const remaining = document.querySelectorAll('#nc-panel .nc-row');
       const badge = document.getElementById('nc-count');
       if(badge) badge.textContent = remaining.length;
-      // Auto-close when all done
       if(!remaining.length){
-        const panel = document.getElementById('nc-panel');
-        if(panel) panel.remove();
+        // All done — collapse and show done message then remove
+        const body = document.getElementById('nc-body');
+        if(body) body.style.maxHeight = '0';
+        setTimeout(function(){
+          const panel = document.getElementById('nc-panel');
+          if(panel) panel.remove();
+        }, 400);
       }
     }, 300);
   }
   _pendingNewContacts[idx] = null;
+}
+
+function dismissNewContacts(){
+  const panel = document.getElementById('nc-panel');
+  if(panel) panel.remove();
+  _pendingNewContacts = [];
 }
 
 function skipNewContact(idx){
