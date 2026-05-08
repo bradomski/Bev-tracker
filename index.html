@@ -1007,6 +1007,7 @@ async function doRefresh(){
     await refreshBizDev(); // BizDev always live
   } else {
     clearClientCache(); // force live fetch, bypass cache
+    clearPendingContacts(curClient); // sheet now has them after refresh
     // Reset scan timestamp so Gmail scan also re-runs
     try{ localStorage.removeItem(scanTimeKey()); }catch(e){}
     await loadData(true);
@@ -1198,7 +1199,9 @@ function getFiltered(){
   d.sort((a,b)=>{
     const ao=STATUS_ORDER[a.status]??9, bo=STATUS_ORDER[b.status]??9;
     if(ao!==bo)return ao-bo;
-    return(b.ld?.getTime()||0)-(a.ld?.getTime()||0);
+    const at = a.ld instanceof Date ? a.ld.getTime() : 0;
+    const bt = b.ld instanceof Date ? b.ld.getTime() : 0;
+    return bt - at;
   });
   return d;
 }
@@ -1548,6 +1551,47 @@ function clearClientCache(){
   localStorage.removeItem(cacheTimeKey());
 }
 
+
+// ── Pending contacts: locally added, persisted until next live sheet refresh ─
+function savePendingContact(client, contact) {
+  try {
+    const key = 'bev-pending-' + client;
+    const existing = JSON.parse(localStorage.getItem(key) || '[]');
+    // Avoid duplicates by email
+    const already = existing.find(function(c){ return c.email === contact.email; });
+    if (!already) {
+      existing.unshift(contact);
+      localStorage.setItem(key, JSON.stringify(existing));
+    }
+  } catch(e) {}
+}
+
+function mergePendingContacts(client) {
+  try {
+    const key = 'bev-pending-' + client;
+    const pending = JSON.parse(localStorage.getItem(key) || '[]');
+    if (!pending.length) return;
+    const remaining = [];
+    pending.forEach(function(pc) {
+      const exists = contacts.find(function(c){ return c.email === pc.email; });
+      if (!exists) {
+        // Restore ld as Date object
+        if (pc.ld) pc.ld = new Date(pc.ld);
+        else pc.ld = null;
+        if (!pc.ld || isNaN(pc.ld.getTime())) pc.ld = null;
+        contacts.unshift(pc);
+        remaining.push(pc);
+      }
+      // else already pulled from sheet — don't add back to remaining
+    });
+    localStorage.setItem(key, JSON.stringify(remaining));
+  } catch(e) {}
+}
+
+function clearPendingContacts(client) {
+  try { localStorage.removeItem('bev-pending-' + client); } catch(e) {}
+}
+
 async function loadData(forceRefresh){
   setSS('syncing','Loading…');
   try{
@@ -1591,6 +1635,8 @@ async function loadData(forceRefresh){
   if(removed.length) contacts=contacts.filter(r=>!removed.includes(r.id));
   loadLocal();
   setRT();
+  // Merge any locally-added contacts that haven't been refreshed from sheet yet
+  mergePendingContacts(curClient);
   updateCounts();
   renderLeads();
   highlightStatCell();
@@ -3514,9 +3560,25 @@ async function acceptNewContact(idx, client){
       recent: true
     };
     contacts.unshift(newContact);
-    clearClientCache();
+    // Persist updated contacts array into cache so switching clients preserves it
+    // Convert contact back to raw row format for cache
+    try {
+      const _existingCache = getCachedRows();
+      const _activity = _existingCache ? (_existingCache.activity || []) : [];
+      // Save all current contacts as raw rows (parseRow is reversible)
+      const _rawRows = contacts.map(function(c){
+        return {
+          id:c.id, name:c.name, email:c.email, company:c.company,
+          location:c.location, status:c.status, owner:c.owner,
+          lm:c.lm, ld:c.ld?c.ld.toISOString().slice(0,10):'',
+          days:c.days, desc:c.desc||'', action:c.action||'',
+          log:c.log||'', ticketCur:c.ticketCur||'', ticketAmt:c.ticketAmt||''
+        };
+      });
+      setCachedRows(_rawRows, _activity);
+    } catch(e) { clearClientCache(); }
     renderLeads();
-    updateCounts();  // update stat bar after render
+    updateCounts();
     highlightStatCell();
     setSS('saving','Saving…');
     // Push to sheet in background
