@@ -3774,6 +3774,12 @@ async function scanNewContacts(client, days){
     const data = await res.json();
     let found = data.newContacts || [];
 
+    // Filter out contacts already in tracker or already added this session
+    const _existingEmails = new Set((contacts||[]).map(function(c){ return (c.email||'').toLowerCase(); }));
+    const _addedKey = 'bev-nc-added-' + (client||curClient);
+    const _alreadyAdded = new Set(JSON.parse(localStorage.getItem(_addedKey)||'[]').map(function(e){ return e.toLowerCase(); }));
+    found = found.filter(function(nc){ const em=(nc.email||'').toLowerCase(); return em && !_existingEmails.has(em) && !_alreadyAdded.has(em); });
+
     if(!found.length){
       setSS('ok', 'No new contacts found · ' + new Date().toLocaleTimeString().slice(0,5));
       if(btn) btn.textContent = '↻ Refresh';
@@ -3940,7 +3946,7 @@ async function acceptNewContact(idx, client){
       const _rawRows = contacts.map(function(c){
         return {
           id:c.id, name:c.name, email:c.email, company:c.company,
-          location:c.location, status:c.status, owner:c.owner,
+          location:c.location, category:c.category||'', status:c.status, owner:c.owner,
           lm:c.lm, ld:c.ld?c.ld.toISOString().slice(0,10):'',
           days:c.days, desc:c.desc||'', action:c.action||'',
           log:c.log||'', ticketCur:c.ticketCur||'', ticketAmt:c.ticketAmt||''
@@ -3963,11 +3969,13 @@ async function acceptNewContact(idx, client){
       }}),
       redirect:'follow'
     }).then(function(){ setSS('ok','Saved · '+new Date().toLocaleTimeString().slice(0,5)); })
-      .catch(function(e){ setSS('err','Save failed'); });
+      .catch(function(e){ setTimeout(function(){ fetch(APPS_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'add_new',client:client,contact:{name:nc.name,email:nc.email,company:company,status:nc.status,owner:'BEV',lm:nc.lm||'',contactDate:nc.ld||'',desc:nc.desc||'',location:nc.location||'',category:nc.category||''}}),redirect:'follow'}).then(function(){setSS('ok','Saved');}).catch(function(){setSS('err','Sheet save failed');});},3000); });
   }
 
   // Clear from pending so it doesn't reappear on next load
   clearSinglePendingContact(client, nc.email);
+  // Save to blocklist so scan never shows this person again
+  try{ const _ak='bev-nc-added-'+client; const _a=JSON.parse(localStorage.getItem(_ak)||'[]'); const _em=(nc.email||'').toLowerCase(); if(_em&&!_a.includes(_em)){_a.push(_em);localStorage.setItem(_ak,JSON.stringify(_a));} }catch(e){}
   // Remove the row immediately — no lingering
   _removeNCRow(idx);
 }
