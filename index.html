@@ -1,5 +1,4 @@
-<!DOCTYPE html> 
-<!-- v2.1 -->
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -264,12 +263,6 @@ html,body{height:100%;font-family:var(--sans);background:var(--paper);color:var(
 .lt-call{background:#e8f0fe;color:#1a3c7a}
 .lt-bev{background:#fdf4ec;color:#a05418}
 .lt-client{background:#edf7f2;color:#1a5c38}
-.cat-badge{display:inline-block;font-size:9px;padding:1px 5px;border-radius:2px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;margin-right:4px;vertical-align:middle;font-family:var(--sans)}
-.cat-sfo{background:#e8f0fd;color:#1a3c8a}.cat-mfo{background:#fdf0e8;color:#8a4c1a}.cat-wm{background:#f0fde8;color:#2a6a1a}
-.cat-endow{background:#f5e8fd;color:#6a1a8a}.cat-sov{background:#e8fdfd;color:#1a6a6a}.cat-pension{background:#fde8f0;color:#8a1a4c}
-.cat-ria{background:#fdfae8;color:#6a5a1a}.cat-other{background:var(--paper3);color:var(--ink3)}
-.cat-pill{background:none;border:1px solid var(--border2);border-radius:3px;padding:2px 7px;font-size:11px;cursor:pointer;color:var(--ink3);font-family:var(--sans);transition:all 0.13s}
-.cat-pill:hover{background:var(--paper2);border-color:var(--border2)}.cat-pill-on{background:var(--dark);color:#fff;border-color:var(--dark)}
 
 /* next action display */
 .next-action-box{background:#fff;border:1px solid var(--border);border-radius:4px;padding:8px 10px;font-size:13px;color:var(--ink2);line-height:1.6;min-height:38px;margin-bottom:0}
@@ -581,18 +574,6 @@ code{font-family:var(--mono)}
         <input class="srch" placeholder="Company, name, location…" id="srch-q" oninput="renderLeads()"/>
         <span class="srch-x" onclick="document.getElementById('srch-q').value='';renderLeads()">clear</span>
       </div>
-      <div id="cat-filter-bar" style="padding:4px 20px 6px;display:flex;align-items:center;gap:5px;flex-wrap:wrap;background:var(--paper2);border-bottom:1px solid var(--border);flex-shrink:0">
-        <span style="font-size:10px;color:var(--ink4);letter-spacing:0.05em;margin-right:2px">Category:</span>
-        <button onclick="setCatFilter(null,this)" class="cat-pill cat-pill-on">All</button>
-        <button onclick="setCatFilter('SFO',this)" class="cat-pill"><span class="cat-badge cat-sfo">SFO</span></button>
-        <button onclick="setCatFilter('MFO',this)" class="cat-pill"><span class="cat-badge cat-mfo">MFO</span></button>
-        <button onclick="setCatFilter('WM',this)" class="cat-pill"><span class="cat-badge cat-wm">WM</span></button>
-        <button onclick="setCatFilter('Endowment',this)" class="cat-pill"><span class="cat-badge cat-endow">Endowment</span></button>
-        <button onclick="setCatFilter('Sovereign',this)" class="cat-pill"><span class="cat-badge cat-sov">Sovereign</span></button>
-        <button onclick="setCatFilter('Pension',this)" class="cat-pill"><span class="cat-badge cat-pension">Pension</span></button>
-        <button onclick="setCatFilter('RIA',this)" class="cat-pill"><span class="cat-badge cat-ria">RIA</span></button>
-        <button onclick="setCatFilter('Other',this)" class="cat-pill"><span class="cat-badge cat-other">Other</span></button>
-      </div>
       <div class="tbl-hd">
         <div class="th" style="padding-left:0">Company / Description / Location</div>
         <div class="th">Status</div>
@@ -713,8 +694,7 @@ code{font-family:var(--mono)}
     row.appendChild(label); row.appendChild(inp); row.appendChild(btn);
     el.appendChild(row);
   });
-})();
-          </script>
+}
 
           <div class="set-sec">
             <div class="set-title">Add new client mandate</div>
@@ -857,19 +837,19 @@ const STALE = 30;
 // Default clients and auth — overridden by localStorage if saved
 const DEFAULT_CLIENTS = {
   // LIVE MANDATES
-  preston:    {name:'Preston Capital'},
-  alaluz:     {name:'Alaluz Capital'},
-  deepdetect: {name:'Deep Detection'},
-  luminova:   {name:'Luminova Ventures'},
-  morphosis:  {name:'Morphosis VC'},
-  spoko:      {name:'Spoko'},
-  worldspire: {name:'WorldSpire'},
-  dynam:      {name:'Dynam Capital'},
+  preston:    {name:'Preston Capital',   subjects:['Life Settlements','Global Alts Miami','Private Credit Manager','Tertiary Life Settlements'],                                                                                   emails:['ak@prestoncap.com','abuchanan@prestoncap.com','across@prestoncap.com']},
+  alaluz:     {name:'Alaluz Capital',    subjects:['Alaluz','Senda','Infrastructure Concession','PPP focused Infrastructure','LatAm focused Infrastructure','Infrastructure private equity'],                                      emails:['enrique.mestre@alaluzcapital.com','jorihuela@sendapartners.com','felix.corral@alaluzcapital.com']},
+  deepdetect: {name:'Deep Detection',   subjects:['Deep Detection','Industrial Detection','Photon Counting'],                                                                                                                      emails:['alejandro@deepdetection.tech']},
+  luminova:   {name:'Luminova Ventures',subjects:['Luminova','European deep tech venture','European dual-use deep tech','Dual-Use Deep Tech'],                                                                                     emails:['ocg@luminovaventures.com']},
+  morphosis:  {name:'Morphosis VC',     subjects:['Morphosis','11.1x MOIC','10.4x MOIC','US-India private markets','India-US Deep Tech','Dubai-Based Fund','Private equity style VC fund','Exclusive Access: Early-Stage Fund','Exclusive Investment Opportunity','Geneva Meetings'], emails:['karen@morphosisvc.com','amit@morphosisvc.com']},
+  spoko:      {name:'Spoko',            subjects:['Spoko','Fintech Investment Opportunity - Spoko','High-Growth Fintech Deal'],                                                                                                    emails:['gustaf.durietznordlof@spokogroup.com','jesper.bergqvist@spokogroup.com']},
+  worldspire: {name:'WorldSpire',       subjects:['Castillo Del Mar','World Spire'],                                                                                                                                              emails:['jeremiah@worldspireconsulting.com']},
+  dynam:      {name:'Dynam Capital',    subjects:['Dynam','Southeast Asia','Vietnam','DEPRF','DIBTSF','APEX Nashville'],                                                                                                           emails:['duc.luu@dynamcapital.com']},
   // OLDER MANDATES
-  presto:     {name:'Presto Ventures'},
-  brandonbox: {name:'Brandon Box'},
-  mangusta:   {name:'Mangusta Capital'},
-  cavallo:    {name:'Cavallo AM'}
+  presto:     {name:'Presto Ventures',  subjects:['Presto'],  emails:[]},
+  brandonbox: {name:'Brandon Box',      subjects:['Brandon Box'], emails:[]},
+  mangusta:   {name:'Mangusta Capital', subjects:['Mangusta'], emails:[]},
+  cavallo:    {name:'Cavallo AM',       subjects:['Cavallo'],  emails:[]}
 };
 const DEFAULT_AUTH = {
   admin:{benjamin:'BEV5300',dom:'BEV5300',alex:'BEV5300'},
@@ -898,7 +878,6 @@ function loadClientConfig(){
 }
 function saveClientConfig(){
   localStorage.setItem('bev-clients-config',JSON.stringify({clients:CLIENTS,auth:AUTH}));
-  if(APPS_SCRIPT_URL&&APPS_SCRIPT_URL!=='YOUR_APPS_SCRIPT_URL_HERE'){fetch(APPS_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'save_setting',key:'client_config',value:{clients:CLIENTS,auth:AUTH}}),redirect:'follow'}).catch(function(){});}
 }
 
 const _cfg = loadClientConfig();
@@ -939,7 +918,6 @@ function doLogin(){
   document.getElementById('app').classList.remove('gone');
   document.getElementById('sb-av').textContent=curUser[0];
   document.getElementById('sb-nm').textContent=curUser;
-  if(typeof _patchEnrichContact==='function')_patchEnrichContact();
   document.getElementById('tb-badge').textContent=role==='admin'?'Admin':'Client';
   buildNav(); loadData(); document.getElementById('ref-btn').style.display=(role==='admin'?'':'none');document.getElementById('dl-btn').style.display=(role==='admin'?'':'none'); if(role==='admin'){initBDContacts();
     initTasks();      // async — loads from sheet
@@ -1139,7 +1117,6 @@ function parseRow(r,i){
   const log       = isObj ? (r.log||'')       : (r[11]||'');
   const ticketCur = isObj ? (r.ticketCur||'') : (r[13]||'');
   const ticketAmt = isObj ? (r.ticketAmt||'') : (r[14]||'');
-  const category  = isObj ? (r.category||'')  : (r[15]||'');
   const rowId     = isObj ? (r.id!=null ? r.id : i+1) : (i+1);
   const ld        = parseDate(ldRaw);
   const today     = new Date(); today.setHours(12,0,0,0);
@@ -1150,7 +1127,7 @@ function parseRow(r,i){
              'Hot':'1 Hot','Warm':'2 Warm','Pre Check':'3 Pre Check','No':'4 No','OOO':'5 OOO'};
     return m[s]||s||'3 Pre Check';
   })(status);
-  return {id:rowId, name, email, company, location, category, status:normStatus, owner, lm, ld,
+  return {id:rowId, name, email, company, location, status:normStatus, owner, lm, ld,
     ldStr:ld?fmtD(ld):'—', days, desc, action, log, ticketCur, ticketAmt,
     actionLog: [],  // initialised empty — loaded from localStorage by loadLocal()
     recent:days!==null&&days<=14,
@@ -1294,7 +1271,6 @@ function getFiltered(){
   const q=(document.getElementById('srch-q')||{}).value?.toLowerCase()||'';
   let d=[...contacts];
   if(q)d=d.filter(r=>(r.name+r.company+r.location).toLowerCase().includes(q));
-  if(window._catFilter)d=d.filter(r=>r.category===window._catFilter);
   if(activeTab==='latest')d=d.filter(r=>r.recent);
   else if(activeTab==='hot')d=d.filter(r=>r.status==='1 Hot');
   else if(activeTab==='warm')d=d.filter(r=>r.status==='2 Warm');
@@ -1420,12 +1396,6 @@ function ownerTag(o){
   return`<span class="owner-tag ${isBEV?'owner-bev':'owner-client'}">${o||'BEV'}</span>`;
 }
 
-const CAT_OPTIONS=['SFO','MFO','WM','Endowment','Sovereign','Pension','RIA','Other'];
-const CAT_CSS={SFO:'cat-sfo',MFO:'cat-mfo',WM:'cat-wm',Endowment:'cat-endow',Sovereign:'cat-sov',Pension:'cat-pension',RIA:'cat-ria',Other:'cat-other'};
-function catBadge(cat){if(!cat)return'';return'<span class="cat-badge '+(CAT_CSS[cat]||'cat-other')+'">'+cat+'</span>';}
-function setCatFilter(cat,btn){window._catFilter=cat||null;document.querySelectorAll('.cat-pill').forEach(function(b){b.classList.remove('cat-pill-on');});if(btn)btn.classList.add('cat-pill-on');renderLeads();}
-function inferCategoryFromDesc(desc){if(!desc)return'';const d=desc.toLowerCase();if(d.includes('single-family office')||d.includes('single family office'))return'SFO';if(d.includes('multi-family office')||d.includes('multi family office'))return'MFO';if(d.includes('wealth manager')||d.includes('wealth management')||d.includes('private bank')||d.includes('private wealth'))return'WM';if(d.includes('endowment'))return'Endowment';if(d.includes('sovereign wealth'))return'Sovereign';if(d.includes('pension fund')||d.includes('pension plan'))return'Pension';if(d.includes('family office'))return'SFO';return'';}
-
 function renderLeads(){
   const data=getFiltered();
   const list=document.getElementById('lead-list');
@@ -1444,7 +1414,6 @@ function renderLeads(){
           ${displaySub?`<div class="lm-name">${displaySub}</div>`:''}
           ${r.email?`<div class="lm-email">${r.email}</div>`:''}
           ${r.location?`<div class="lm-loc-inline">📍 ${r.location}</div>`:''}
-          ${r.category?`<div style="margin-top:3px">${catBadge(r.category)}</div>`:''}
           ${r.desc?`<div class="lm-desc">${safeLm(r.desc,140)}</div>`:''}
         </div>
         <div class="lm-status" style="padding:0 5px">
@@ -1486,16 +1455,10 @@ function toggleExp(id){
 
 function getLog(r){
   if(actionLog[r.id])return actionLog[r.id];
+  // Build from existing data
   const log=[];
-  if(r.log&&r.log.length>3){
-    r.log.split(' | ').forEach(function(part){
-      const m=part.match(/^\[([^\]]+)\]\s+([A-Z\-]+):\s*(.+)$/);
-      if(m)log.push({date:m[1].trim(),type:m[2].toLowerCase().replace('-note',''),txt:m[3].trim()});
-      else if(part.trim())log.push({date:'',type:'note',txt:part.trim()});
-    });
-  }
-  if(r.lm&&r.ld){const lmDate=fmtDT(r.ld);if(!log.some(function(e){return e.txt===r.lm;}))log.push({date:lmDate,type:'reply',txt:r.lm});}
-  else if(r.ld&&!log.length)log.push({date:fmtDT(r.ld),type:'outreach',txt:'BEV outreach sent'});
+  if(r.lm&&r.ld)log.push({date:fmtDT(r.ld),type:'reply',txt:r.lm});
+  else if(r.ld)log.push({date:fmtDT(r.ld),type:'outreach',txt:'BEV outreach sent'});
   return log;
 }
 
@@ -1534,10 +1497,6 @@ function buildExpand(r){
         </div>
         <div style="font-size:9px;color:rgba(255,255,255,0.3);margin-top:5px">USD. Updates gold total immediately.</div>
 
-        <div class="exp-sec-lbl" style="margin-top:14px">Investor Category</div>
-        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px" onclick="event.stopPropagation()">
-          ${CAT_OPTIONS.map(c=>`<button class="exp-btn ${r.category===c?'sec':''}" style="font-size:9px;padding:3px 8px" onclick="updateCategory('${r.id}','${c}',this);event.stopPropagation()">${catBadge(c)} ${c}</button>`).join('')}
-        </div>
         <div class="exp-sec-lbl" style="margin-top:14px">Description <span style="font-size:8px;color:rgba(255,255,255,0.25);text-transform:none;letter-spacing:0">(editable)</span></div>
         <textarea class="exp-ta" id="desc-${r.id}" style="min-height:90px;font-size:10px;line-height:1.5" onclick="event.stopPropagation()">${r.desc||''}</textarea>
         <div style="display:flex;gap:6px;margin-top:4px">
@@ -1738,7 +1697,6 @@ async function loadData(forceRefresh){
         const ageStr = ageH < 1 ? 'just now' : ageH < 24 ? ageH+'h ago' : Math.round(ageH/24)+'d ago';
         Object.keys(actionLog).forEach(k=>delete actionLog[k]);
         contacts = cached.rows.map(parseRow);
-        contacts.forEach(function(c){if(!c.category&&c.desc)c.category=inferCategoryFromDesc(c.desc);});
         if(cached.activity && cached.activity.length) mergeGmailActivity(cached.activity);
         setSS('ok','Cached · synced '+ageStr+' · ↻ to refresh');
       } else {
@@ -1767,7 +1725,7 @@ async function loadData(forceRefresh){
   }
   // Filter out previously removed contacts
   const removed=JSON.parse(localStorage.getItem('bev-removed-'+curClient)||'[]');
-  if(removed.length) contacts=contacts.filter(r=>!removed.map(String).includes(String(r.id)));
+  if(removed.length) contacts=contacts.filter(r=>!removed.includes(String(r.id)));
   loadLocal();
   setRT();
   // Merge any locally-added contacts that haven't been refreshed from sheet yet
@@ -1809,7 +1767,6 @@ async function loadFromSheet(){
   setCachedRows(d.rows, d.newActivity||[]);
   Object.keys(actionLog).forEach(k=>delete actionLog[k]);
   contacts=d.rows.map(parseRow);
-  contacts.forEach(function(c){if(!c.category&&c.desc)c.category=inferCategoryFromDesc(c.desc);});
   if(d.newActivity&&d.newActivity.length){
     mergeGmailActivity(d.newActivity);
     console.log('Gmail sync:',d.newActivity.length,'items merged');
@@ -1935,13 +1892,6 @@ function saveDesc(id){
   flash('sv-desc-'+id);
   pushUpdate(id,{desc:r.desc});
 }
-function updateCategory(id,cat,btn){
-  const r=contacts.find(c=>String(c.id)===String(id));if(!r)return;
-  r.category=cat;
-  try{const _c=getCachedRows();const _rows=contacts.map(function(c){return{id:c.id,name:c.name,email:c.email,company:c.company,location:c.location,category:c.category||'',status:c.status,owner:c.owner,lm:c.lm,ld:c.ld?c.ld.toISOString().slice(0,10):'',days:c.days,desc:c.desc||'',action:c.action||'',log:c.log||'',ticketCur:c.ticketCur||'',ticketAmt:c.ticketAmt||''};});setCachedRows(_rows,_c?(_c.activity||[]):[]);}catch(e){}
-  renderLeads();pushUpdate(id,{category:cat});
-}
-
 function saveTicket(id){
   const r=contacts.find(x=>x.id==id);if(!r)return;
   const amt=(document.getElementById('ta-'+id)?.value||'').trim();
@@ -2709,7 +2659,8 @@ function renderTasksView(){
     const clientIdx = allClients.indexOf(client);
     html += '<div style="display:grid;grid-template-columns:160px 1fr 1fr;border-bottom:2px solid #e8e0d0">'
       +'<div style="padding:10px 8px 10px 0;font-size:12px;font-weight:700;color:var(--ink);border-right:2px solid #d4cbb4;align-self:stretch;display:flex;flex-direction:column;justify-content:space-between">'
-        +'<div style="display:flex;align-items:flex-start;justify-content:space-between">'          +'<span>'+client+'</span>'          +'<button data-c="'+client+'" onclick="removeTaskClient(this.dataset.c)" style="background:none;border:none;color:#c9a0a0;cursor:pointer;font-size:10px;padding:0">✕</button>'        +'</div>'        +'<div style="display:flex;gap:3px;margin-top:6px">'
+        +'<span>'+client+'</span>'
+        +'<div style="display:flex;gap:3px;margin-top:6px">'
           +(clientIdx>0?'<button data-c="'+client+'" data-d="-1" onclick="moveClientPriority(this.dataset.c,parseInt(this.dataset.d));renderTasksView()" style="background:none;border:1px solid #d4cbb4;border-radius:3px;color:#aaa;cursor:pointer;font-size:9px;padding:1px 5px">▲</button>':'')
           +(clientIdx<allClients.length-1?'<button data-c="'+client+'" data-d="1" onclick="moveClientPriority(this.dataset.c,parseInt(this.dataset.d));renderTasksView()" style="background:none;border:1px solid #d4cbb4;border-radius:3px;color:#aaa;cursor:pointer;font-size:9px;padding:1px 5px">▼</button>':'')
         +'</div>'
@@ -2732,25 +2683,8 @@ function renderTasksView(){
     +'</div>';
   }
 
-  html += '<div style="padding:10px 14px;border-top:2px solid var(--border);background:var(--paper2);display:flex;align-items:center;gap:10px">'    +'<span style="font-size:11px;color:var(--ink3)">Add client:</span>'    +'<input id="task-new-client" class="srch" placeholder="Client name…" style="width:150px;padding:4px 8px;font-size:12px" onkeydown="if(event.key===\'Enter\')addTaskClient()"/>'    +'<button onclick="addTaskClient()" style="font-size:11px;padding:4px 10px;background:var(--gold2);color:#fff;border:none;border-radius:3px;cursor:pointer">+ Add</button>'  +'</div>';
   html += '</div>';
   el.innerHTML = html;
-}
-
-function addTaskClient(){
-  const inp=document.getElementById('task-new-client');
-  const name=(inp?.value||'').trim();
-  if(!name){alert('Enter a client name');return;}
-  let order=loadClientOrder()||[];
-  if(order.includes(name)){alert('Already exists');return;}
-  order.push(name);saveClientOrder(order);
-  if(inp)inp.value='';renderTasksView();
-}
-function removeTaskClient(name){
-  if(!confirm('Remove "'+name+'" column? Tasks move to unassigned.'))return;
-  const ts=loadTasks();ts.forEach(function(t){if(t.client===name)t.client='';});saveTasks(ts);
-  let order=loadClientOrder()||[];order=order.filter(function(c){return c!==name;});saveClientOrder(order);
-  renderTasksView();
 }
 
 function renderDashboard(){
@@ -3208,7 +3142,6 @@ function deleteLogEntry(id, idx){
   const row=document.getElementById('row-'+id);
   if(row){const ac=row.querySelector('.lm-action-txt');if(ac)ac.innerHTML=getLastLog(r||{id,action:''});}
   saveLocal();
-  if(r){const _l=actionLog[id]||[];pushUpdate(id,{fullLog:_l.map(function(e){return'['+e.date+'] '+(e.type||'').toUpperCase()+': '+e.txt;}).join(' | '),action:_l.length?_l[0].txt:''});}
 }
 function deleteTask(id){
   const tasks = loadTasks().filter(x=>x.id!==id);
@@ -3675,28 +3608,6 @@ let _pendingNewContacts = []; // contacts waiting for user review
 // company description from email/name/company
 // ══════════════════════════════════════════════════════════════════
 
-function _patchEnrichContact(){
-  if(typeof enrichContact!=='function')return;
-  const src=enrichContact.toString();
-  if(src.includes('anthropic-dangerous-direct-browser-access')&&src.includes('category: one of SFO'))return;
-  window.enrichContact=async function enrichContact(contact){
-    const key=localStorage.getItem('bev-claude-key')||'';if(!key)return contact;
-    try{
-      const domain=(contact.email||'').split('@')[1]||'';
-      const prompt='Given: Name: '+contact.name+', Email: '+contact.email+', Company/domain: '+(contact.company||domain)
-        +'\nIMPORTANT: domain may be abbreviated (db.com=Deutsche Bank, jbaer.com=Julius Baer, ubs.com=UBS). Return REAL full company name.'
-        +'\nProvide JSON: {title, company (REAL full name), location (city, country), desc (1-2 sentences: what they do, AUM if known, LP potential), category (SFO/MFO/WM/Endowment/Sovereign/Pension/RIA/Other)}'
-        +'\nReturn ONLY valid JSON, no markdown.';
-      const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','x-api-key':key,'anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:400,messages:[{role:'user',content:prompt}]})});
-      const d=await res.json();
-      const txt=(d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
-      const enriched=JSON.parse(txt.replace(/```json|```/g,'').trim());
-      return Object.assign({},contact,{title:enriched.title||contact.title||'',company:enriched.company||contact.company||'',location:enriched.location||contact.location||'',desc:enriched.desc||contact.desc||'',category:enriched.category||contact.category||''});
-    }catch(e){console.warn('Enrichment failed:',e.message);return contact;}
-  };
-  console.log('enrichContact patched');
-}
-
 async function enrichContact(contact){
   const key = localStorage.getItem('bev-claude-key') || '';
   if(!key) return contact; // no key = skip enrichment
@@ -3709,9 +3620,7 @@ async function enrichContact(contact){
       + '\n- title: their likely job title'
       + '\n- company: proper company name (not just domain)'
       + '\n- location: city and country (e.g. "London, UK")'
-      + '\n- desc: 1-2 sentence company description (what they do, AUM if known, LP potential)'
-      + '\n- category: one of SFO (single-family office), MFO (multi-family office), WM (wealth manager/private bank), Endowment, Sovereign (sovereign wealth fund), Pension, RIA (registered investment advisor), Other'
-      + '\nIMPORTANT: company field may be a domain (db.com=Deutsche Bank). Return the REAL full company name.'
+      + '\n- desc: 1-2 sentence company description (what they do, AUM if known, focus)'
       + '\nReturn ONLY valid JSON, no markdown.';
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -3733,7 +3642,6 @@ async function enrichContact(contact){
       company: enriched.company || contact.company || '',
       location:enriched.location|| contact.location|| '',
       desc:    enriched.desc    || contact.desc    || '',
-      category:enriched.category||contact.category||'',
     });
   } catch(e) {
     console.warn('Enrichment failed for', contact.name, ':', e.message);
@@ -3750,17 +3658,16 @@ async function enrichContact(contact){
 
 async function enrichNewContacts(contacts){
   const key = localStorage.getItem('bev-claude-key') || '';
-  if(!key) return contacts;
-  // Parallel enrichment in batches of 5 — ~5x faster than sequential
-  const results = new Array(contacts.length);
-  const BATCH = 5;
-  for(let i=0; i<contacts.length; i+=BATCH){
-    const batch = contacts.slice(i, i+BATCH);
-    const enriched = await Promise.all(batch.map(function(c){ return enrichContact(c); }));
-    enriched.forEach(function(c,j){ results[i+j]=c; });
-    if(i+BATCH < contacts.length) await new Promise(function(r){ setTimeout(r,500); });
+  if(!key) return contacts; // enrichment requires API key
+
+  const enriched = [];
+  for(let i=0; i<contacts.length; i++){
+    const c = await enrichContact(contacts[i]);
+    enriched.push(c);
+    // Small delay to avoid rate limiting
+    await new Promise(function(resolve){ setTimeout(resolve, 300); });
   }
-  return results;
+  return enriched;
 }
 
 async function scanNewContacts(client, days){
@@ -3774,12 +3681,6 @@ async function scanNewContacts(client, days){
     const res = await fetch(url, {method:'GET', redirect:'follow', cache:'no-store'});
     const data = await res.json();
     let found = data.newContacts || [];
-
-    // Filter out contacts already in tracker or already added this session
-    const _existingEmails = new Set((contacts||[]).map(function(c){ return (c.email||'').toLowerCase(); }));
-    const _addedKey = 'bev-nc-added-' + (client||curClient);
-    const _alreadyAdded = new Set(JSON.parse(localStorage.getItem(_addedKey)||'[]').map(function(e){ return e.toLowerCase(); }));
-    found = found.filter(function(nc){ const em=(nc.email||'').toLowerCase(); return em && !_existingEmails.has(em) && !_alreadyAdded.has(em); });
 
     if(!found.length){
       setSS('ok', 'No new contacts found · ' + new Date().toLocaleTimeString().slice(0,5));
@@ -3933,7 +3834,7 @@ async function acceptNewContact(idx, client){
       owner: 'BEV', lm: nc.lm || '', ld: nc.ld ? new Date(nc.ld) : null,
       ldStr: nc.ld ? nc.ld.slice(0,10) : '—',
       days: nc.ld ? Math.round((new Date()-new Date(nc.ld))/86400000) : null,
-      desc: nc.desc||'', category: nc.category||'', action: '', log: '', ticketCur: '', ticketAmt: '',
+      desc: '', action: '', log: '', ticketCur: '', ticketAmt: '',
       actionLog: nc.lm ? [{date:nc.ld||'',type:'reply',txt:(nc.lm||'').slice(0,150)}] : [],
       recent: true
     };
@@ -3947,7 +3848,7 @@ async function acceptNewContact(idx, client){
       const _rawRows = contacts.map(function(c){
         return {
           id:c.id, name:c.name, email:c.email, company:c.company,
-          location:c.location, category:c.category||'', status:c.status, owner:c.owner,
+          location:c.location, status:c.status, owner:c.owner,
           lm:c.lm, ld:c.ld?c.ld.toISOString().slice(0,10):'',
           days:c.days, desc:c.desc||'', action:c.action||'',
           log:c.log||'', ticketCur:c.ticketCur||'', ticketAmt:c.ticketAmt||''
@@ -3965,18 +3866,15 @@ async function acceptNewContact(idx, client){
       body: JSON.stringify({action:'add_new', client:client, contact:{
         name:nc.name, email:nc.email, company:company,
         status:nc.status, owner:'BEV', lm:nc.lm||'',
-        contactDate:nc.ld||'', introMade:nc.introMade,
-        desc:nc.desc||'', location:nc.location||'', category:nc.category||''
+        contactDate:nc.ld||'', introMade:nc.introMade
       }}),
       redirect:'follow'
     }).then(function(){ setSS('ok','Saved · '+new Date().toLocaleTimeString().slice(0,5)); })
-      .catch(function(e){ setTimeout(function(){ fetch(APPS_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'add_new',client:client,contact:{name:nc.name,email:nc.email,company:company,status:nc.status,owner:'BEV',lm:nc.lm||'',contactDate:nc.ld||'',desc:nc.desc||'',location:nc.location||'',category:nc.category||''}}),redirect:'follow'}).then(function(){setSS('ok','Saved');}).catch(function(){setSS('err','Sheet save failed');});},3000); });
+      .catch(function(e){ setSS('err','Save failed'); });
   }
 
   // Clear from pending so it doesn't reappear on next load
   clearSinglePendingContact(client, nc.email);
-  // Save to blocklist so scan never shows this person again
-  try{ const _ak='bev-nc-added-'+client; const _a=JSON.parse(localStorage.getItem(_ak)||'[]'); const _em=(nc.email||'').toLowerCase(); if(_em&&!_a.includes(_em)){_a.push(_em);localStorage.setItem(_ak,JSON.stringify(_a));} }catch(e){}
   // Remove the row immediately — no lingering
   _removeNCRow(idx);
 }
