@@ -263,12 +263,6 @@ html,body{height:100%;font-family:var(--sans);background:var(--paper);color:var(
 .lt-call{background:#e8f0fe;color:#1a3c7a}
 .lt-bev{background:#fdf4ec;color:#a05418}
 .lt-client{background:#edf7f2;color:#1a5c38}
-.cat-badge{display:inline-block;font-size:9px;padding:1px 5px;border-radius:2px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;margin-right:4px;vertical-align:middle;font-family:var(--sans)}
-.cat-sfo{background:#e8f0fd;color:#1a3c8a}.cat-mfo{background:#fdf0e8;color:#8a4c1a}.cat-wm{background:#f0fde8;color:#2a6a1a}
-.cat-endow{background:#f5e8fd;color:#6a1a8a}.cat-sov{background:#e8fdfd;color:#1a6a6a}.cat-pension{background:#fde8f0;color:#8a1a4c}
-.cat-ria{background:#fdfae8;color:#6a5a1a}.cat-other{background:var(--paper3);color:var(--ink3)}
-.cat-pill{background:none;border:1px solid var(--border2);border-radius:3px;padding:2px 7px;font-size:11px;cursor:pointer;color:var(--ink3);font-family:var(--sans);transition:all 0.13s}
-.cat-pill:hover{background:var(--paper2);border-color:var(--border2)}.cat-pill-on{background:var(--dark);color:#fff;border-color:var(--dark)}
 
 /* next action display */
 .next-action-box{background:#fff;border:1px solid var(--border);border-radius:4px;padding:8px 10px;font-size:13px;color:var(--ink2);line-height:1.6;min-height:38px;margin-bottom:0}
@@ -580,18 +574,6 @@ code{font-family:var(--mono)}
         <input class="srch" placeholder="Company, name, location…" id="srch-q" oninput="renderLeads()"/>
         <span class="srch-x" onclick="document.getElementById('srch-q').value='';renderLeads()">clear</span>
       </div>
-      <div id="cat-filter-bar" style="padding:4px 20px 6px;display:flex;align-items:center;gap:5px;flex-wrap:wrap;background:var(--paper2);border-bottom:1px solid var(--border);flex-shrink:0">
-        <span style="font-size:10px;color:var(--ink4);letter-spacing:0.05em;margin-right:2px">Category:</span>
-        <button onclick="setCatFilter(null,this)" class="cat-pill cat-pill-on" data-cat="">All</button>
-        <button onclick="setCatFilter('SFO',this)" class="cat-pill" data-cat="SFO"><span class="cat-badge cat-sfo">SFO</span></button>
-        <button onclick="setCatFilter('MFO',this)" class="cat-pill" data-cat="MFO"><span class="cat-badge cat-mfo">MFO</span></button>
-        <button onclick="setCatFilter('WM',this)" class="cat-pill" data-cat="WM"><span class="cat-badge cat-wm">WM</span></button>
-        <button onclick="setCatFilter('Endowment',this)" class="cat-pill" data-cat="Endowment"><span class="cat-badge cat-endow">Endowment</span></button>
-        <button onclick="setCatFilter('Sovereign',this)" class="cat-pill" data-cat="Sovereign"><span class="cat-badge cat-sov">Sovereign</span></button>
-        <button onclick="setCatFilter('Pension',this)" class="cat-pill" data-cat="Pension"><span class="cat-badge cat-pension">Pension</span></button>
-        <button onclick="setCatFilter('RIA',this)" class="cat-pill" data-cat="RIA"><span class="cat-badge cat-ria">RIA</span></button>
-        <button onclick="setCatFilter('Other',this)" class="cat-pill" data-cat="Other"><span class="cat-badge cat-other">Other</span></button>
-      </div>
       <div class="tbl-hd">
         <div class="th" style="padding-left:0">Company / Description / Location</div>
         <div class="th">Status</div>
@@ -685,18 +667,34 @@ code{font-family:var(--mono)}
           </div>
           <script>
             (function buildPwList(){
-              const el = document.getElementById('pw-list');
-              if(!el || typeof CLIENTS === 'undefined') return setTimeout(buildPwList, 500);
-              el.innerHTML = Object.keys(CLIENTS).map(function(cid){
-                const pw = AUTH.client[cid] || '';
-                return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
-                  +'<div style="width:130px;font-size:12px;font-weight:600;color:var(--ink)">'+(CLIENTS[cid]?.name||cid)+'</div>'
-                  +'<input class="set-inp" id="pw-'+cid+'" value="'+pw+'" placeholder="Set password" style="width:160px;font-family:monospace" />'
-                  +'<button class="set-btn" onclick="saveClientPw(''+cid+'')">Save</button>'
-                  +'</div>';
-              }).join('');
-            })();
-          </script>
+  const el = document.getElementById('pw-list');
+  if(!el) return;
+  if(typeof CLIENTS === 'undefined' || typeof AUTH === 'undefined'){
+    setTimeout(buildPwList, 300); return;
+  }
+  el.innerHTML = '';
+  Object.keys(CLIENTS).forEach(function(cid){
+    const pw = (AUTH.client && AUTH.client[cid]) ? AUTH.client[cid] : '';
+    const name = (CLIENTS[cid] && CLIENTS[cid].name) ? CLIENTS[cid].name : cid;
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:8px';
+    const label = document.createElement('div');
+    label.style.cssText = 'width:140px;font-size:12px;font-weight:600;color:var(--ink);flex-shrink:0';
+    label.textContent = name;
+    const inp = document.createElement('input');
+    inp.className = 'set-inp';
+    inp.id = 'pw-' + cid;
+    inp.value = pw;
+    inp.placeholder = 'Set password';
+    inp.style.cssText = 'width:160px;font-family:monospace;letter-spacing:1px';
+    const btn = document.createElement('button');
+    btn.className = 'set-btn';
+    btn.textContent = 'Save';
+    btn.onclick = (function(id){ return function(){ saveClientPw(id); }; })(cid);
+    row.appendChild(label); row.appendChild(inp); row.appendChild(btn);
+    el.appendChild(row);
+  });
+}
 
           <div class="set-sec">
             <div class="set-title">Add new client mandate</div>
@@ -878,34 +876,8 @@ function loadClientConfig(){
   }catch(e){}
   return {clients:DEFAULT_CLIENTS, auth:{admin:{...DEFAULT_AUTH.admin}, client:{...DEFAULT_AUTH.client}}};
 }
-async function syncClientConfigFromSheet(){
-  if(!APPS_SCRIPT_URL||APPS_SCRIPT_URL==='YOUR_APPS_SCRIPT_URL_HERE') return;
-  try{
-    const r = await fetch(APPS_SCRIPT_URL+'?action=get_settings&t='+Date.now(),{redirect:'follow'});
-    const d = await r.json();
-    if(d.settings && d.settings.client_order){
-      localStorage.setItem(CLIENT_ORDER_KEY, JSON.stringify(d.settings.client_order));
-    }
-    if(d.settings && d.settings.client_config){
-      const cfg = d.settings.client_config;
-      if(cfg.clients) Object.assign(CLIENTS, cfg.clients);
-      if(cfg.auth && cfg.auth.admin) Object.assign(AUTH.admin, cfg.auth.admin);
-      if(cfg.auth && cfg.auth.client) Object.assign(AUTH.client, cfg.auth.client);
-      localStorage.setItem('bev-clients-config',JSON.stringify({clients:CLIENTS,auth:AUTH}));
-      if(typeof renderSidebar==='function') renderSidebar();
-      console.log('Client config synced from sheet');
-    }
-  }catch(e){ console.warn('syncClientConfigFromSheet error:',e.message); }
-}
 function saveClientConfig(){
   localStorage.setItem('bev-clients-config',JSON.stringify({clients:CLIENTS,auth:AUTH}));
-  if(APPS_SCRIPT_URL && APPS_SCRIPT_URL!=='YOUR_APPS_SCRIPT_URL_HERE'){
-    fetch(APPS_SCRIPT_URL,{
-      method:'POST',
-      body:JSON.stringify({action:'save_setting', key:'client_config', value:{clients:CLIENTS,auth:AUTH}}),
-      redirect:'follow'
-    }).catch(function(e){ console.warn('saveClientConfig sheet error:',e.message); });
-  }
 }
 
 const _cfg = loadClientConfig();
@@ -926,6 +898,7 @@ let contacts=[], actionLog={}, expandedId=null, activeTab='latest', weeklyDone=n
 // ═══════════ AUTH ═══════════
 function setLR(r){loginRole=r;document.getElementById('lr-a').classList.toggle('on',r==='admin');document.getElementById('lr-c').classList.toggle('on',r==='client');}
 
+
 function saveClientPw(clientId){
   const el = document.getElementById('pw-'+clientId);
   if(!el) return;
@@ -944,9 +917,7 @@ function doLogin(){
   document.getElementById('ls').classList.add('gone');
   document.getElementById('app').classList.remove('gone');
   document.getElementById('sb-av').textContent=curUser[0];
-  syncClientConfigFromSheet();
   document.getElementById('sb-nm').textContent=curUser;
-  _patchEnrichContact();
   document.getElementById('tb-badge').textContent=role==='admin'?'Admin':'Client';
   buildNav(); loadData(); document.getElementById('ref-btn').style.display=(role==='admin'?'':'none');document.getElementById('dl-btn').style.display=(role==='admin'?'':'none'); if(role==='admin'){initBDContacts();
     initTasks();      // async — loads from sheet
@@ -1142,7 +1113,6 @@ function parseRow(r,i){
   const log       = isObj ? (r.log||'')       : (r[11]||'');
   const ticketCur = isObj ? (r.ticketCur||'') : (r[13]||'');
   const ticketAmt = isObj ? (r.ticketAmt||'') : (r[14]||'');
-  const category  = isObj ? (r.category||'')  : (r[15]||'');
   const rowId     = isObj ? (r.id!=null ? r.id : i+1) : (i+1);
   const ld        = parseDate(ldRaw);
   const today     = new Date(); today.setHours(12,0,0,0);
@@ -1153,7 +1123,7 @@ function parseRow(r,i){
              'Hot':'1 Hot','Warm':'2 Warm','Pre Check':'3 Pre Check','No':'4 No','OOO':'5 OOO'};
     return m[s]||s||'3 Pre Check';
   })(status);
-  return {id:rowId, name, email, company, location, category, status:normStatus, owner, lm, ld,
+  return {id:rowId, name, email, company, location, status:normStatus, owner, lm, ld,
     ldStr:ld?fmtD(ld):'—', days, desc, action, log, ticketCur, ticketAmt,
     actionLog: [],  // initialised empty — loaded from localStorage by loadLocal()
     recent:days!==null&&days<=14,
@@ -1297,7 +1267,6 @@ function getFiltered(){
   const q=(document.getElementById('srch-q')||{}).value?.toLowerCase()||'';
   let d=[...contacts];
   if(q)d=d.filter(r=>(r.name+r.company+r.location).toLowerCase().includes(q));
-  if(window._catFilter)d=d.filter(r=>r.category===window._catFilter);
   if(activeTab==='latest')d=d.filter(r=>r.recent);
   else if(activeTab==='hot')d=d.filter(r=>r.status==='1 Hot');
   else if(activeTab==='warm')d=d.filter(r=>r.status==='2 Warm');
@@ -1423,29 +1392,6 @@ function ownerTag(o){
   return`<span class="owner-tag ${isBEV?'owner-bev':'owner-client'}">${o||'BEV'}</span>`;
 }
 
-const CAT_OPTIONS = ['SFO','MFO','WM','Endowment','Sovereign','Pension','RIA','Other'];
-const CAT_CSS = {SFO:'cat-sfo',MFO:'cat-mfo',WM:'cat-wm',Endowment:'cat-endow',Sovereign:'cat-sov',Pension:'cat-pension',RIA:'cat-ria',Other:'cat-other'};
-function catBadge(cat){if(!cat)return'';return'<span class="cat-badge '+(CAT_CSS[cat]||'cat-other')+'">'+cat+'</span>';}
-function setCatFilter(cat, btn){
-  window._catFilter = cat || null;
-  document.querySelectorAll('.cat-pill').forEach(function(b){b.classList.remove('cat-pill-on');});
-  if(btn) btn.classList.add('cat-pill-on');
-  renderLeads();
-}
-function inferCategoryFromDesc(desc){
-  if(!desc) return '';
-  const d = desc.toLowerCase();
-  if(d.includes('single-family office')||d.includes('single family office')||/\bsfo\b/.test(d)) return 'SFO';
-  if(d.includes('multi-family office')||d.includes('multi family office')||/\bmfo\b/.test(d)) return 'MFO';
-  if(d.includes('wealth manager')||d.includes('wealth management')||d.includes('private bank')||d.includes('private wealth')) return 'WM';
-  if(d.includes('endowment')) return 'Endowment';
-  if(d.includes('sovereign wealth')) return 'Sovereign';
-  if(d.includes('pension fund')||d.includes('pension plan')) return 'Pension';
-  if(d.includes('ria')||d.includes('registered investment advisor')||d.includes('wealth advisor')||d.includes('financial advisor')) return 'RIA';
-  if(d.includes('family office')) return 'SFO';
-  return '';
-}
-
 function renderLeads(){
   const data=getFiltered();
   const list=document.getElementById('lead-list');
@@ -1464,7 +1410,6 @@ function renderLeads(){
           ${displaySub?`<div class="lm-name">${displaySub}</div>`:''}
           ${r.email?`<div class="lm-email">${r.email}</div>`:''}
           ${r.location?`<div class="lm-loc-inline">📍 ${r.location}</div>`:''}
-          ${r.category?`<div style="margin-top:3px">${catBadge(r.category)}</div>`:''}
           ${r.desc?`<div class="lm-desc">${safeLm(r.desc,140)}</div>`:''}
         </div>
         <div class="lm-status" style="padding:0 5px">
@@ -1548,10 +1493,6 @@ function buildExpand(r){
         </div>
         <div style="font-size:9px;color:rgba(255,255,255,0.3);margin-top:5px">USD. Updates gold total immediately.</div>
 
-        <div class="exp-sec-lbl" style="margin-top:14px">Investor Category</div>
-        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px" onclick="event.stopPropagation()">
-          ${CAT_OPTIONS.map(c=>`<button class="exp-btn ${r.category===c?'sec':''}" style="font-size:9px;padding:3px 8px" onclick="updateCategory('${r.id}','${c}',this);event.stopPropagation()">${catBadge(c)} ${c}</button>`).join('')}
-        </div>
         <div class="exp-sec-lbl" style="margin-top:14px">Description <span style="font-size:8px;color:rgba(255,255,255,0.25);text-transform:none;letter-spacing:0">(editable)</span></div>
         <textarea class="exp-ta" id="desc-${r.id}" style="min-height:90px;font-size:10px;line-height:1.5" onclick="event.stopPropagation()">${r.desc||''}</textarea>
         <div style="display:flex;gap:6px;margin-top:4px">
@@ -1690,6 +1631,17 @@ function clearClientCache(){
 
 
 // ── Pending contacts: locally added, persisted until next live sheet refresh ─
+function clearSinglePendingContact(client, email){
+  try{
+    const key = 'bev-pending-' + (client || curClient);
+    const raw = localStorage.getItem(key);
+    if(!raw) return;
+    const arr = JSON.parse(raw);
+    const filtered = arr.filter(function(c){ return c.email !== email; });
+    localStorage.setItem(key, JSON.stringify(filtered));
+  }catch(e){}
+}
+
 function savePendingContact(client, contact) {
   try {
     const key = 'bev-pending-' + client;
@@ -1741,7 +1693,6 @@ async function loadData(forceRefresh){
         const ageStr = ageH < 1 ? 'just now' : ageH < 24 ? ageH+'h ago' : Math.round(ageH/24)+'d ago';
         Object.keys(actionLog).forEach(k=>delete actionLog[k]);
         contacts = cached.rows.map(parseRow);
-        contacts.forEach(function(c){ if(!c.category && c.desc) c.category = inferCategoryFromDesc(c.desc); });
         if(cached.activity && cached.activity.length) mergeGmailActivity(cached.activity);
         setSS('ok','Cached · synced '+ageStr+' · ↻ to refresh');
       } else {
@@ -1793,9 +1744,8 @@ async function loadData(forceRefresh){
 }
 
 async function loadFromSheet(){
-  const _client = curClient;
   const since=new Date(Date.now()-30*86400000).toISOString();
-  const url=APPS_SCRIPT_URL+'?client='+_client+'&action=read&since='+encodeURIComponent(since)+'&t='+Date.now();
+  const url=APPS_SCRIPT_URL+'?client='+curClient+'&action=read&since='+encodeURIComponent(since)+'&t='+Date.now();
   console.log('Fetching:',url);
   // Apps Script redirects to googleusercontent.com — follow the redirect
   const res=await fetch(url,{method:'GET',redirect:'follow',cache:'no-store'});
@@ -1808,13 +1758,11 @@ async function loadFromSheet(){
   if(!d.rows||!Array.isArray(d.rows))throw new Error('No rows array. Keys: '+Object.keys(d).join(','));
   console.log('Rows received:',d.rows.length);
   // Clear stale action logs when loading fresh contacts for this client
-  if(_client !== curClient){ console.warn('Stale fetch for '+_client+' discarded'); return; }
   Object.keys(actionLog).forEach(k=>delete actionLog[k]);
   // Cache the fresh data
   setCachedRows(d.rows, d.newActivity||[]);
   Object.keys(actionLog).forEach(k=>delete actionLog[k]);
   contacts=d.rows.map(parseRow);
-  contacts.forEach(function(c){ if(!c.category && c.desc) c.category = inferCategoryFromDesc(c.desc); });
   if(d.newActivity&&d.newActivity.length){
     mergeGmailActivity(d.newActivity);
     console.log('Gmail sync:',d.newActivity.length,'items merged');
@@ -1940,23 +1888,6 @@ function saveDesc(id){
   flash('sv-desc-'+id);
   pushUpdate(id,{desc:r.desc});
 }
-function updateCategory(id, cat, btn){
-  const r = contacts.find(c=>String(c.id)===String(id));
-  if(!r) return;
-  r.category = cat;
-  try {
-    const _c = getCachedRows(); const _act = _c ? (_c.activity||[]) : [];
-    const _rows = contacts.map(function(c){
-      return {id:c.id,name:c.name,email:c.email,company:c.company,location:c.location,
-        category:c.category||'',status:c.status,owner:c.owner,lm:c.lm,
-        ld:c.ld?c.ld.toISOString().slice(0,10):'',days:c.days,desc:c.desc||'',
-        action:c.action||'',log:c.log||'',ticketCur:c.ticketCur||'',ticketAmt:c.ticketAmt||''};
-    });
-    setCachedRows(_rows, _act);
-  } catch(e){}
-  renderLeads();
-}
-
 function saveTicket(id){
   const r=contacts.find(x=>x.id==id);if(!r)return;
   const amt=(document.getElementById('ta-'+id)?.value||'').trim();
@@ -2138,8 +2069,8 @@ function renderSettingsUI(){
   if(keyEl)keyEl.value=localStorage.getItem('bev-claude-key')||'';
   renderClientList();
   renderAdminList();
+  buildPwList();
 }
-
 function renderClientList(){
   const cl=document.getElementById('client-list-ui');
   if(!cl)return;
@@ -2173,23 +2104,10 @@ function renderAdminList(){
     row.className='client-item';
     row.innerHTML='<span class="client-item-name">'+u+'</span>'
       +'<span class="client-item-pw">pw: '+pw+'</span>';
-    const editBtn=document.createElement('button');
-    editBtn.className='set-btn';
-    editBtn.textContent='Edit pw';
-    editBtn.style.cssText='margin-right:4px;font-size:11px;padding:3px 8px';
-    editBtn.onclick=function(){
-      const np=prompt('New password for '+u+':',pw);
-      if(!np||!np.trim()) return;
-      AUTH.admin[u]=np.trim();
-      saveClientConfig();
-      renderAdminList();
-      flash('Admin password updated for '+u);
-    };
     const btn=document.createElement('button');
     btn.className='set-btn-del';
     btn.textContent='Remove';
     btn.onclick=function(){removeAdmin(u);};
-    row.appendChild(editBtn);
     row.appendChild(btn);
     al.appendChild(row);
   });
@@ -2572,6 +2490,7 @@ function downloadBizDevExcel(){
 
 function removeRetainerClient(clientId){
   clientId = (clientId||'').toLowerCase();
+  clientId = (clientId||'').toLowerCase();
   const retainers = loadRetainers();
   const name = retainers[clientId]?.pastName || CLIENTS[clientId]?.name || clientId;
   if(!confirm('Remove '+name+' from retainer tracker?')) return;
@@ -2735,10 +2654,7 @@ function renderTasksView(){
     const clientIdx = allClients.indexOf(client);
     html += '<div style="display:grid;grid-template-columns:160px 1fr 1fr;border-bottom:2px solid #e8e0d0">'
       +'<div style="padding:10px 8px 10px 0;font-size:12px;font-weight:700;color:var(--ink);border-right:2px solid #d4cbb4;align-self:stretch;display:flex;flex-direction:column;justify-content:space-between">'
-        +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:4px">'
-          +'<span>'+client+'</span>'
-          +'<button data-c="'+client+'" onclick="removeTaskClient(this.dataset.c)" title="Remove" style="background:none;border:none;color:#c9a0a0;cursor:pointer;font-size:10px;padding:0;line-height:1">✕</button>'
-        +'</div>'
+        +'<span>'+client+'</span>'
         +'<div style="display:flex;gap:3px;margin-top:6px">'
           +(clientIdx>0?'<button data-c="'+client+'" data-d="-1" onclick="moveClientPriority(this.dataset.c,parseInt(this.dataset.d));renderTasksView()" style="background:none;border:1px solid #d4cbb4;border-radius:3px;color:#aaa;cursor:pointer;font-size:9px;padding:1px 5px">▲</button>':'')
           +(clientIdx<allClients.length-1?'<button data-c="'+client+'" data-d="1" onclick="moveClientPriority(this.dataset.c,parseInt(this.dataset.d));renderTasksView()" style="background:none;border:1px solid #d4cbb4;border-radius:3px;color:#aaa;cursor:pointer;font-size:9px;padding:1px 5px">▼</button>':'')
@@ -2762,36 +2678,8 @@ function renderTasksView(){
     +'</div>';
   }
 
-  html += '<div style="padding:10px 14px;border-top:2px solid var(--border);background:var(--paper2);display:flex;align-items:center;gap:10px">'
-    +'<span style="font-size:11px;color:var(--ink3)">Add client column:</span>'
-    +'<input id="task-new-client" class="srch" placeholder="Client name…" style="width:160px;padding:4px 8px;font-size:12px" onkeydown="if(event.key===\'Enter\')addTaskClient()"/>'
-    +'<button onclick="addTaskClient()" style="font-size:11px;padding:4px 12px;background:var(--gold2);color:#fff;border:none;border-radius:3px;cursor:pointer;font-weight:600">+ Add</button>'
-  +'</div>';
   html += '</div>';
   el.innerHTML = html;
-}
-
-function addTaskClient(){
-  const inp = document.getElementById('task-new-client');
-  const name = (inp?.value||'').trim();
-  if(!name){ alert('Enter a client name'); return; }
-  let order = loadClientOrder() || [];
-  if(order.includes(name)){ alert('Already exists'); return; }
-  order.push(name);
-  saveClientOrder(order);
-  if(inp) inp.value = '';
-  renderTasksView();
-}
-
-function removeTaskClient(name){
-  if(!confirm('Remove "'+name+'" column? Tasks will be moved to unassigned.')) return;
-  const ts = loadTasks();
-  ts.forEach(function(t){ if(t.client===name) t.client=''; });
-  saveTasks(ts);
-  let order = loadClientOrder() || [];
-  order = order.filter(function(c){ return c!==name; });
-  saveClientOrder(order);
-  renderTasksView();
 }
 
 function renderDashboard(){
@@ -3140,12 +3028,7 @@ function editRetainer(clientId){
 
 const CLIENT_ORDER_KEY='bev_client_order_v1';
 function loadClientOrder(){try{return JSON.parse(localStorage.getItem(CLIENT_ORDER_KEY)||'null');}catch(e){return null;}}
-function saveClientOrder(o){
-  localStorage.setItem(CLIENT_ORDER_KEY,JSON.stringify(o));
-  if(APPS_SCRIPT_URL && APPS_SCRIPT_URL!=='YOUR_APPS_SCRIPT_URL_HERE'){
-    fetch(APPS_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'save_setting',key:'client_order',value:o}),redirect:'follow'}).catch(function(){});
-  }
-}
+function saveClientOrder(o){localStorage.setItem(CLIENT_ORDER_KEY,JSON.stringify(o));}
 function moveClientPriority(client,dir){
   const def=['Preston Capital','Dynam Capital','WorldSpire','Spoko','Morphosis','Alaluz Capital','DeepDetection'];
   const tasks=loadTasks();
@@ -3720,35 +3603,6 @@ let _pendingNewContacts = []; // contacts waiting for user review
 // company description from email/name/company
 // ══════════════════════════════════════════════════════════════════
 
-function _patchEnrichContact(){
-  const src = enrichContact.toString();
-  if(src.includes('anthropic-dangerous-direct-browser-access')) return;
-  window.enrichContact = async function enrichContact(contact){
-    const key = localStorage.getItem('bev-claude-key') || '';
-    if(!key) return contact;
-    try {
-      const prompt = 'Given this contact: Name: ' + contact.name
-        + ', Email: ' + contact.email
-        + ', Company (guessed from email): ' + (contact.company || (contact.email||'').split('@')[1] || '')
-        + '\n\nProvide a JSON object with these fields:\n- title: their likely job title\n- company: proper company name\n- location: city and country\n- desc: 1-2 sentence company description\n- category: one of SFO, MFO, WM, Endowment, Sovereign, Pension, RIA, Other\nReturn ONLY valid JSON, no markdown.';
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method:'POST',
-        headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','x-api-key':key,'anthropic-dangerous-direct-browser-access':'true'},
-        body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:300,messages:[{role:'user',content:prompt}]})
-      });
-      const d = await res.json();
-      const txt=(d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
-      const enriched=JSON.parse(txt.replace(/```json|```/g,'').trim());
-      return Object.assign({},contact,{title:enriched.title||contact.title||'',company:enriched.company||contact.company||'',location:enriched.location||contact.location||'',desc:enriched.desc||contact.desc||'',category:enriched.category||contact.category||''});
-    } catch(e) {
-      console.warn('Enrichment failed:',e.message);
-      if(!contact.company&&contact.email){const d=contact.email.split('@')[1]||'';contact.company=d.replace(/\.com|\.vc|\.io|\.fund/g,'').split('.').pop().replace(/^./,c=>c.toUpperCase());}
-      return contact;
-    }
-  };
-  console.log('enrichContact self-patched');
-}
-
 async function enrichContact(contact){
   const key = localStorage.getItem('bev-claude-key') || '';
   if(!key) return contact; // no key = skip enrichment
@@ -3762,7 +3616,6 @@ async function enrichContact(contact){
       + '\n- company: proper company name (not just domain)'
       + '\n- location: city and country (e.g. "London, UK")'
       + '\n- desc: 1-2 sentence company description (what they do, AUM if known, focus)'
-      + '\n- category: one of SFO (single-family office), MFO (multi-family office), WM (wealth manager/private bank), Endowment, Sovereign (sovereign wealth fund), Pension, RIA (registered investment advisor), Other'
       + '\nReturn ONLY valid JSON, no markdown.';
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -3784,7 +3637,6 @@ async function enrichContact(contact){
       company: enriched.company || contact.company || '',
       location:enriched.location|| contact.location|| '',
       desc:    enriched.desc    || contact.desc    || '',
-      category:enriched.category|| contact.category|| '',
     });
   } catch(e) {
     console.warn('Enrichment failed for', contact.name, ':', e.message);
@@ -3964,6 +3816,8 @@ async function acceptNewContact(idx, client){
       desc:         entry.desc     || '',
       action_log:   entry.actionLog.map(function(e){ return e.date+' — '+e.type+' — '+e.txt; }).join('\n'),
     });
+    // Clear from pending so it doesn't reappear after refresh
+    clearSinglePendingContact(client, nc.email);
     renderBizDev();
   } else {
     // Add to client sheet via POST
@@ -3991,7 +3845,7 @@ async function acceptNewContact(idx, client){
           id:c.id, name:c.name, email:c.email, company:c.company,
           location:c.location, status:c.status, owner:c.owner,
           lm:c.lm, ld:c.ld?c.ld.toISOString().slice(0,10):'',
-          days:c.days, desc:c.desc||'', category:c.category||'', action:c.action||'',
+          days:c.days, desc:c.desc||'', action:c.action||'',
           log:c.log||'', ticketCur:c.ticketCur||'', ticketAmt:c.ticketAmt||''
         };
       });
@@ -4014,6 +3868,8 @@ async function acceptNewContact(idx, client){
       .catch(function(e){ setSS('err','Save failed'); });
   }
 
+  // Clear from pending so it doesn't reappear on next load
+  clearSinglePendingContact(client, nc.email);
   // Remove the row immediately — no lingering
   _removeNCRow(idx);
 }
