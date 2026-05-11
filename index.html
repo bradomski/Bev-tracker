@@ -574,6 +574,9 @@ code{font-family:var(--mono)}
         <input class="srch" placeholder="Company, name, location…" id="srch-q" oninput="renderLeads()"/>
         <span class="srch-x" onclick="document.getElementById('srch-q').value='';renderLeads()">clear</span>
       </div>
+      <div class="cat-bar" id="cat-bar" style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 0 4px">
+        <span class="cat-lbl" style="font-size:10px;font-weight:600;color:var(--ink3);align-self:center;letter-spacing:.05em">Category:</span>
+      </div>
       <div class="tbl-hd">
         <div class="th" style="padding-left:0">Company / Description / Location</div>
         <div class="th">Status</div>
@@ -893,7 +896,7 @@ const LT = {
 
 // state
 let role='admin', curUser='', curClient='preston', loginRole='admin';
-let contacts=[], actionLog={}, expandedId=null, activeTab='latest', weeklyDone=new Set();
+let contacts=[], actionLog={}, expandedId=null, activeTab='latest', activeCat='ALL', weeklyDone=new Set();
 
 // ═══════════ AUTH ═══════════
 function setLR(r){loginRole=r;document.getElementById('lr-a').classList.toggle('on',r==='admin');document.getElementById('lr-c').classList.toggle('on',r==='client');}
@@ -1127,8 +1130,20 @@ function parseRow(r,i){
              'Hot':'1 Hot','Warm':'2 Warm','Pre Check':'3 Pre Check','No':'4 No','OOO':'5 OOO'};
     return m[s]||s||'3 Pre Check';
   })(status);
+  const catRaw = isObj ? (r.cat||r.category||'') : (r[8]||'');
+  const cat = (function(raw,d){
+    if(raw) return raw.toUpperCase().trim();
+    const t=(d||'').toLowerCase();
+    if(/single.family|\bsfo\b|family office(?! advis)/.test(t)) return 'SFO';
+    if(/multi.family|\bmfo\b/.test(t)) return 'MFO';
+    if(/\bendowment\b/.test(t)) return 'ENDOWMENT';
+    if(/sovereign wealth|sovereign fund/.test(t)) return 'SOVEREIGN';
+    if(/pension fund|pension plan|pension trust/.test(t)) return 'PENSION';
+    if(/wealth manag|private bank|registered investment|\bria\b/.test(t)) return 'WM';
+    return '';
+  })(catRaw, isObj ? (r.desc||'') : (r[9]||''));
   return {id:rowId, name, email, company, location, status:normStatus, owner, lm, ld,
-    ldStr:ld?fmtD(ld):'—', days, desc, action, log, ticketCur, ticketAmt,
+    ldStr:ld?fmtD(ld):'—', days, desc, action, log, ticketCur, ticketAmt, cat,
     actionLog: [],  // initialised empty — loaded from localStorage by loadLocal()
     recent:days!==null&&days<=14,
     stale:days!==null&&days>STALE&&(normStatus==='2 Warm'||normStatus==='3 Pre Check'),
@@ -1270,7 +1285,8 @@ function getLastLog(r){
 function getFiltered(){
   const q=(document.getElementById('srch-q')||{}).value?.toLowerCase()||'';
   let d=[...contacts];
-  if(q)d=d.filter(r=>(r.name+r.company+r.location).toLowerCase().includes(q));
+  if(q)d=d.filter(r=>(r.name+r.company+r.location+r.desc).toLowerCase().includes(q));
+  if(activeCat&&activeCat!=='ALL')d=d.filter(r=>r.cat===activeCat);
   if(activeTab==='latest')d=d.filter(r=>r.recent);
   else if(activeTab==='hot')d=d.filter(r=>r.status==='1 Hot');
   else if(activeTab==='warm')d=d.filter(r=>r.status==='2 Warm');
@@ -1396,7 +1412,24 @@ function ownerTag(o){
   return`<span class="owner-tag ${isBEV?'owner-bev':'owner-client'}">${o||'BEV'}</span>`;
 }
 
+function renderCatBtns(){
+  const bar = document.getElementById('cat-bar');
+  if(!bar) return;
+  const cats = ['ALL','SFO','MFO','WM','ENDOWMENT','SOVEREIGN','PENSION','RIA','OTHER'];
+  const labels = {ALL:'All',SFO:'SFO',MFO:'MFO',WM:'WM',ENDOWMENT:'Endowment',SOVEREIGN:'Sovereign',PENSION:'Pension',RIA:'RIA',OTHER:'Other'};
+  bar.innerHTML = '<span class="cat-lbl" style="font-size:10px;font-weight:600;color:var(--ink3);align-self:center;letter-spacing:.05em">Category:</span>';
+  cats.forEach(function(c){
+    const btn = document.createElement('button');
+    btn.className = 'sb-btn' + (activeCat===c ? ' on' : '');
+    btn.style.cssText = 'font-size:11px;padding:3px 10px;border-radius:3px;cursor:pointer;border:1px solid var(--border);background:' + (activeCat===c ? 'var(--gold)' : 'transparent') + ';color:' + (activeCat===c ? '#fff' : 'var(--ink2)') + ';font-weight:' + (activeCat===c ? '600' : '400');
+    btn.textContent = labels[c];
+    btn.onclick = function(){ activeCat = c; renderCatBtns(); renderLeads(); };
+    bar.appendChild(btn);
+  });
+}
+
 function renderLeads(){
+  renderCatBtns();
   const data=getFiltered();
   const list=document.getElementById('lead-list');
   if(!data.length){
