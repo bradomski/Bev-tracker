@@ -1486,10 +1486,16 @@ function toggleExp(id){
 
 function getLog(r){
   if(actionLog[r.id])return actionLog[r.id];
-  // Build from existing data
   const log=[];
-  if(r.lm&&r.ld)log.push({date:fmtDT(r.ld),type:'reply',txt:r.lm});
-  else if(r.ld)log.push({date:fmtDT(r.ld),type:'outreach',txt:'BEV outreach sent'});
+  if(r.log&&r.log.length>3){
+    r.log.split(' | ').forEach(function(part){
+      const m=part.match(/^\[([^\]]+)\]\s+([A-Z\-]+):\s*(.+)$/);
+      if(m)log.push({date:m[1].trim(),type:m[2].toLowerCase().replace('-note',''),txt:m[3].trim()});
+      else if(part.trim())log.push({date:'',type:'note',txt:part.trim()});
+    });
+  }
+  if(r.lm&&r.ld){const lmDate=fmtDT(r.ld);if(!log.some(function(e){return e.txt===r.lm;}))log.push({date:lmDate,type:'reply',txt:r.lm});}
+  else if(r.ld&&!log.length)log.push({date:fmtDT(r.ld),type:'outreach',txt:'BEV outreach sent'});
   return log;
 }
 
