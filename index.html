@@ -878,8 +878,34 @@ function loadClientConfig(){
   }catch(e){}
   return {clients:DEFAULT_CLIENTS, auth:{admin:{...DEFAULT_AUTH.admin}, client:{...DEFAULT_AUTH.client}}};
 }
+async function syncClientConfigFromSheet(){
+  if(!APPS_SCRIPT_URL||APPS_SCRIPT_URL==='YOUR_APPS_SCRIPT_URL_HERE') return;
+  try{
+    const r = await fetch(APPS_SCRIPT_URL+'?action=get_settings&t='+Date.now(),{redirect:'follow'});
+    const d = await r.json();
+    if(d.settings && d.settings.client_order){
+      localStorage.setItem(CLIENT_ORDER_KEY, JSON.stringify(d.settings.client_order));
+    }
+    if(d.settings && d.settings.client_config){
+      const cfg = d.settings.client_config;
+      if(cfg.clients) Object.assign(CLIENTS, cfg.clients);
+      if(cfg.auth && cfg.auth.admin) Object.assign(AUTH.admin, cfg.auth.admin);
+      if(cfg.auth && cfg.auth.client) Object.assign(AUTH.client, cfg.auth.client);
+      localStorage.setItem('bev-clients-config',JSON.stringify({clients:CLIENTS,auth:AUTH}));
+      if(typeof renderSidebar==='function') renderSidebar();
+      console.log('Client config synced from sheet');
+    }
+  }catch(e){ console.warn('syncClientConfigFromSheet error:',e.message); }
+}
 function saveClientConfig(){
   localStorage.setItem('bev-clients-config',JSON.stringify({clients:CLIENTS,auth:AUTH}));
+  if(APPS_SCRIPT_URL && APPS_SCRIPT_URL!=='YOUR_APPS_SCRIPT_URL_HERE'){
+    fetch(APPS_SCRIPT_URL,{
+      method:'POST',
+      body:JSON.stringify({action:'save_setting', key:'client_config', value:{clients:CLIENTS,auth:AUTH}}),
+      redirect:'follow'
+    }).catch(function(e){ console.warn('saveClientConfig sheet error:',e.message); });
+  }
 }
 
 const _cfg = loadClientConfig();
@@ -918,6 +944,7 @@ function doLogin(){
   document.getElementById('ls').classList.add('gone');
   document.getElementById('app').classList.remove('gone');
   document.getElementById('sb-av').textContent=curUser[0];
+  syncClientConfigFromSheet();
   document.getElementById('sb-nm').textContent=curUser;
   document.getElementById('tb-badge').textContent=role==='admin'?'Admin':'Client';
   buildNav(); loadData(); document.getElementById('ref-btn').style.display=(role==='admin'?'':'none');document.getElementById('dl-btn').style.display=(role==='admin'?'':'none'); if(role==='admin'){initBDContacts();
@@ -1765,8 +1792,9 @@ async function loadData(forceRefresh){
 }
 
 async function loadFromSheet(){
+  const _client = curClient;
   const since=new Date(Date.now()-30*86400000).toISOString();
-  const url=APPS_SCRIPT_URL+'?client='+curClient+'&action=read&since='+encodeURIComponent(since)+'&t='+Date.now();
+  const url=APPS_SCRIPT_URL+'?client='+_client+'&action=read&since='+encodeURIComponent(since)+'&t='+Date.now();
   console.log('Fetching:',url);
   // Apps Script redirects to googleusercontent.com — follow the redirect
   const res=await fetch(url,{method:'GET',redirect:'follow',cache:'no-store'});
@@ -1779,6 +1807,7 @@ async function loadFromSheet(){
   if(!d.rows||!Array.isArray(d.rows))throw new Error('No rows array. Keys: '+Object.keys(d).join(','));
   console.log('Rows received:',d.rows.length);
   // Clear stale action logs when loading fresh contacts for this client
+  if(_client !== curClient){ console.warn('Stale fetch for '+_client+' discarded'); return; }
   Object.keys(actionLog).forEach(k=>delete actionLog[k]);
   // Cache the fresh data
   setCachedRows(d.rows, d.newActivity||[]);
@@ -2143,10 +2172,23 @@ function renderAdminList(){
     row.className='client-item';
     row.innerHTML='<span class="client-item-name">'+u+'</span>'
       +'<span class="client-item-pw">pw: '+pw+'</span>';
+    const editBtn=document.createElement('button');
+    editBtn.className='set-btn';
+    editBtn.textContent='Edit pw';
+    editBtn.style.cssText='margin-right:4px;font-size:11px;padding:3px 8px';
+    editBtn.onclick=function(){
+      const np=prompt('New password for '+u+':',pw);
+      if(!np||!np.trim()) return;
+      AUTH.admin[u]=np.trim();
+      saveClientConfig();
+      renderAdminList();
+      flash('Admin password updated for '+u);
+    };
     const btn=document.createElement('button');
     btn.className='set-btn-del';
     btn.textContent='Remove';
     btn.onclick=function(){removeAdmin(u);};
+    row.appendChild(editBtn);
     row.appendChild(btn);
     al.appendChild(row);
   });
@@ -2529,7 +2571,6 @@ function downloadBizDevExcel(){
 
 function removeRetainerClient(clientId){
   clientId = (clientId||'').toLowerCase();
-  clientId = (clientId||'').toLowerCase();
   const retainers = loadRetainers();
   const name = retainers[clientId]?.pastName || CLIENTS[clientId]?.name || clientId;
   if(!confirm('Remove '+name+' from retainer tracker?')) return;
@@ -2693,7 +2734,10 @@ function renderTasksView(){
     const clientIdx = allClients.indexOf(client);
     html += '<div style="display:grid;grid-template-columns:160px 1fr 1fr;border-bottom:2px solid #e8e0d0">'
       +'<div style="padding:10px 8px 10px 0;font-size:12px;font-weight:700;color:var(--ink);border-right:2px solid #d4cbb4;align-self:stretch;display:flex;flex-direction:column;justify-content:space-between">'
-        +'<span>'+client+'</span>'
+        +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:4px">'
+          +'<span>'+client+'</span>'
+          +'<button data-c="'+client+'" onclick="removeTaskClient(this.dataset.c)" title="Remove" style="background:none;border:none;color:#c9a0a0;cursor:pointer;font-size:10px;padding:0;line-height:1">✕</button>'
+        +'</div>'
         +'<div style="display:flex;gap:3px;margin-top:6px">'
           +(clientIdx>0?'<button data-c="'+client+'" data-d="-1" onclick="moveClientPriority(this.dataset.c,parseInt(this.dataset.d));renderTasksView()" style="background:none;border:1px solid #d4cbb4;border-radius:3px;color:#aaa;cursor:pointer;font-size:9px;padding:1px 5px">▲</button>':'')
           +(clientIdx<allClients.length-1?'<button data-c="'+client+'" data-d="1" onclick="moveClientPriority(this.dataset.c,parseInt(this.dataset.d));renderTasksView()" style="background:none;border:1px solid #d4cbb4;border-radius:3px;color:#aaa;cursor:pointer;font-size:9px;padding:1px 5px">▼</button>':'')
@@ -2717,8 +2761,36 @@ function renderTasksView(){
     +'</div>';
   }
 
+  html += '<div style="padding:10px 14px;border-top:2px solid var(--border);background:var(--paper2);display:flex;align-items:center;gap:10px">'
+    +'<span style="font-size:11px;color:var(--ink3)">Add client column:</span>'
+    +'<input id="task-new-client" class="srch" placeholder="Client name…" style="width:160px;padding:4px 8px;font-size:12px" onkeydown="if(event.key===\'Enter\')addTaskClient()"/>'
+    +'<button onclick="addTaskClient()" style="font-size:11px;padding:4px 12px;background:var(--gold2);color:#fff;border:none;border-radius:3px;cursor:pointer;font-weight:600">+ Add</button>'
+  +'</div>';
   html += '</div>';
   el.innerHTML = html;
+}
+
+function addTaskClient(){
+  const inp = document.getElementById('task-new-client');
+  const name = (inp?.value||'').trim();
+  if(!name){ alert('Enter a client name'); return; }
+  let order = loadClientOrder() || [];
+  if(order.includes(name)){ alert('Already exists'); return; }
+  order.push(name);
+  saveClientOrder(order);
+  if(inp) inp.value = '';
+  renderTasksView();
+}
+
+function removeTaskClient(name){
+  if(!confirm('Remove "'+name+'" column? Tasks will be moved to unassigned.')) return;
+  const ts = loadTasks();
+  ts.forEach(function(t){ if(t.client===name) t.client=''; });
+  saveTasks(ts);
+  let order = loadClientOrder() || [];
+  order = order.filter(function(c){ return c!==name; });
+  saveClientOrder(order);
+  renderTasksView();
 }
 
 function renderDashboard(){
@@ -3067,7 +3139,12 @@ function editRetainer(clientId){
 
 const CLIENT_ORDER_KEY='bev_client_order_v1';
 function loadClientOrder(){try{return JSON.parse(localStorage.getItem(CLIENT_ORDER_KEY)||'null');}catch(e){return null;}}
-function saveClientOrder(o){localStorage.setItem(CLIENT_ORDER_KEY,JSON.stringify(o));}
+function saveClientOrder(o){
+  localStorage.setItem(CLIENT_ORDER_KEY,JSON.stringify(o));
+  if(APPS_SCRIPT_URL && APPS_SCRIPT_URL!=='YOUR_APPS_SCRIPT_URL_HERE'){
+    fetch(APPS_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'save_setting',key:'client_order',value:o}),redirect:'follow'}).catch(function(){});
+  }
+}
 function moveClientPriority(client,dir){
   const def=['Preston Capital','Dynam Capital','WorldSpire','Spoko','Morphosis','Alaluz Capital','DeepDetection'];
   const tasks=loadTasks();
