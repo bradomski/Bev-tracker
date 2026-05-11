@@ -3750,16 +3750,17 @@ async function enrichContact(contact){
 
 async function enrichNewContacts(contacts){
   const key = localStorage.getItem('bev-claude-key') || '';
-  if(!key) return contacts; // enrichment requires API key
-
-  const enriched = [];
-  for(let i=0; i<contacts.length; i++){
-    const c = await enrichContact(contacts[i]);
-    enriched.push(c);
-    // Small delay to avoid rate limiting
-    await new Promise(function(resolve){ setTimeout(resolve, 300); });
+  if(!key) return contacts;
+  // Parallel enrichment in batches of 5 — ~5x faster than sequential
+  const results = new Array(contacts.length);
+  const BATCH = 5;
+  for(let i=0; i<contacts.length; i+=BATCH){
+    const batch = contacts.slice(i, i+BATCH);
+    const enriched = await Promise.all(batch.map(function(c){ return enrichContact(c); }));
+    enriched.forEach(function(c,j){ results[i+j]=c; });
+    if(i+BATCH < contacts.length) await new Promise(function(r){ setTimeout(r,500); });
   }
-  return enriched;
+  return results;
 }
 
 async function scanNewContacts(client, days){
