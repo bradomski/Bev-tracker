@@ -659,7 +659,31 @@ code{font-family:var(--mono)}
             <div class="set-sub">Add or remove client mandates. Each client gets their own login and pipeline view. The client ID is used for login — keep it short, lowercase, no spaces.</div>
             <div id="client-list-ui"></div>
             <div class="set-divider"></div>
-            <div style="font-size:13px;font-weight:600;color:var(--ink2);margin-bottom:12px">➕ Add new client mandate</div>
+            <!-- CLIENT PASSWORD MANAGER -->
+          <div class="set-sec" style="margin-bottom:24px">
+            <div class="set-title">Client passwords</div>
+            <div class="set-sub">Set or change the login password for each client. Share these with clients so they can view their own pipeline.</div>
+            <div id="pw-list" style="margin-top:10px"></div>
+          </div>
+          <script>
+            (function buildPwList(){
+              const el = document.getElementById('pw-list');
+              if(!el || typeof CLIENTS === 'undefined') return setTimeout(buildPwList, 500);
+              el.innerHTML = Object.keys(CLIENTS).map(function(cid){
+                const pw = AUTH.client[cid] || '';
+                return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+                  +'<div style="width:130px;font-size:12px;font-weight:600;color:var(--ink)">'+(CLIENTS[cid]?.name||cid)+'</div>'
+                  +'<input class="set-inp" id="pw-'+cid+'" value="'+pw+'" placeholder="Set password" style="width:160px;font-family:monospace" />'
+                  +'<button class="set-btn" onclick="saveClientPw(''+cid+'')">Save</button>'
+                  +'</div>';
+              }).join('');
+            })();
+          </script>
+
+          <div class="set-sec">
+            <div class="set-title">Add new client mandate</div>
+          </div>
+          <div style="font-size:13px;font-weight:600;color:var(--ink2);margin-bottom:12px">➕ Add new client mandate</div>
             <div style="background:var(--paper2);border-radius:8px;padding:16px;border:1px solid var(--border)">
               <div class="set-row" style="margin-bottom:10px">
                 <div style="flex:1">
@@ -813,7 +837,20 @@ const DEFAULT_CLIENTS = {
 };
 const DEFAULT_AUTH = {
   admin:{benjamin:'BEV5300',dom:'BEV5300',alex:'BEV5300'},
-  client:{preston:'PRESTON2026',luminova:'LUMINO2026',worldspire:'WORLD2026'}
+  client:{
+    preston:    'PRESTON2026',
+    worldspire: 'WORLD2026',
+    luminova:   'LUMINO2026',
+    alaluz:     'ALALUZ2026',
+    deepdetect: 'DEEPDET2026',
+    morphosis:  'MORPHO2026',
+    spoko:      'SPOKO2026',
+    dynam:      'DYNAM2026',
+    presto:     'PRESTO2026',
+    brandonbox: 'BRANDON2026',
+    mangusta:   'MANGUSTA2026',
+    cavallo:    'CAVALLO2026'
+  }
 };
 
 function loadClientConfig(){
@@ -844,6 +881,17 @@ let contacts=[], actionLog={}, expandedId=null, activeTab='latest', weeklyDone=n
 
 // ═══════════ AUTH ═══════════
 function setLR(r){loginRole=r;document.getElementById('lr-a').classList.toggle('on',r==='admin');document.getElementById('lr-c').classList.toggle('on',r==='client');}
+
+function saveClientPw(clientId){
+  const el = document.getElementById('pw-'+clientId);
+  if(!el) return;
+  const pw = el.value.trim();
+  if(!pw){ alert('Please enter a password.'); return; }
+  AUTH.client[clientId] = pw;
+  saveClientConfig();
+  flash('Password saved for ' + (CLIENTS[clientId]?.name || clientId));
+}
+
 function doLogin(){
   const u=document.getElementById('lu').value.trim().toLowerCase();
   const p=document.getElementById('lp').value.trim();
@@ -1011,19 +1059,23 @@ function loadLocal(){
 async function doRefresh(){
   const btn=document.getElementById('ref-btn');
   if(btn) btn.innerHTML='<span class="spin"></span>';
+  // Capture client NOW — before any async ops or user switching
+  const refreshClient = curClient;
   const isBD = document.getElementById('view-bizdev')?.classList.contains('on');
   if(isBD){
     await refreshBizDev(); // BizDev always live
   } else {
-    clearClientCache(); // force live fetch, bypass cache
-    clearPendingContacts(curClient); // sheet now has them after refresh
-    // Reset scan timestamp so Gmail scan also re-runs
+    clearClientCache();
+    clearPendingContacts(refreshClient);
     try{ localStorage.removeItem(scanTimeKey()); }catch(e){}
     await loadData(true);
   }
-  // Scan for new contacts (runs because we cleared scan timestamp)
+  // Scan using captured client — safe even if user switches client
   if(!isBD){
-    setTimeout(function(){ scanNewContacts(curClient, 14); }, 1000);
+    setTimeout(function(){
+      // Always scan the client that was active when Refresh was pressed
+      scanNewContacts(refreshClient, 14);
+    }, 1000);
   }
   if(btn) btn.textContent='↻ Refresh';
 }
@@ -1652,9 +1704,13 @@ async function loadData(forceRefresh){
   // Auto Gmail scan: run once per day in background, no user action needed
   if(!lastScanWasToday() && APPS_SCRIPT_URL && APPS_SCRIPT_URL!=='YOUR_APPS_SCRIPT_URL_HERE'){
     markScannedToday();
+    // Capture client NOW so scan targets correct client even if user switches
+    const _scanClient = curClient;
     setTimeout(function(){
+      // Only scan if user is still on same client, otherwise skip
+      // (they'll get scanned when they switch to this client next time)
       setSS('syncing','Scanning Gmail…');
-      scanNewContacts(curClient, 14);
+      scanNewContacts(_scanClient, 14);
     }, 2000); // 2s delay so UI renders first
   }
 }
@@ -2231,11 +2287,75 @@ function saveForecast(d){
 
 function editForecast(){
   const f = loadForecast();
-  const r = prompt('Monthly retainer target (€):', f.retainerTarget||0);
-  if(r===null) return;
-  const s = prompt('Annual success fee target (€):', f.successTarget||0);
-  if(s===null) return;
-  saveForecast({...f, retainerTarget:parseFloat(r)||0, successTarget:parseFloat(s)||0});
+
+  // Build a modal dialog for editing
+  const existing = document.getElementById('fc-modal');
+  if(existing) existing.remove();
+
+  const years = f.years && f.years.length ? f.years : [
+    {year:2023,retainer:0,success:0},
+    {year:2024,retainer:0,success:0},
+    {year:2025,retainer:0,success:0},
+    {year:2026,retainer:0,success:0,retainerTarget:0,successTarget:0},
+    {year:2027,retainer:0,success:0,retainerTarget:0,successTarget:0},
+  ];
+
+  let rows = years.map((y,i) =>
+    '<tr style="border-bottom:1px solid #eee">'
+    +'<td style="padding:6px 8px;font-weight:600;font-size:13px">'+y.year+'</td>'
+    +'<td style="padding:4px"><input type="number" id="fc-ret-'+i+'" value="'+(y.retainer||0)+'" style="width:90px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:12px"/></td>'
+    +'<td style="padding:4px"><input type="number" id="fc-suc-'+i+'" value="'+(y.success||0)+'" style="width:90px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:12px"/></td>'
+    +'<td style="padding:4px"><input type="number" id="fc-rtt-'+i+'" value="'+(y.retainerTarget||0)+'" style="width:90px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:12px"/></td>'
+    +'<td style="padding:4px"><input type="number" id="fc-sut-'+i+'" value="'+(y.successTarget||0)+'" style="width:90px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:12px"/></td>'
+    +'</tr>'
+  ).join('');
+
+  const modal = document.createElement('div');
+  modal.id = 'fc-modal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+  modal.innerHTML = '<div style="background:#fff;border-radius:12px;padding:28px;min-width:620px;max-width:90vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3)">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">'
+    +'<div style="font-family:var(--serif);font-size:20px;color:var(--ink)">Revenue Forecast</div>'
+    +'<button onclick="closeForecastModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999">✕</button>'
+    +'</div>'
+    +'<table style="width:100%;border-collapse:collapse;font-size:12px">'
+    +'<thead><tr style="border-bottom:2px solid #eee;text-align:left">'
+    +'<th style="padding:6px 8px;color:#666;font-size:10px;text-transform:uppercase">Year</th>'
+    +'<th style="padding:6px 8px;color:#666;font-size:10px;text-transform:uppercase">Retainer Actual (€/yr)</th>'
+    +'<th style="padding:6px 8px;color:#666;font-size:10px;text-transform:uppercase">Success Fee Actual (€)</th>'
+    +'<th style="padding:6px 8px;color:#666;font-size:10px;text-transform:uppercase">Retainer Target (€/yr)</th>'
+    +'<th style="padding:6px 8px;color:#666;font-size:10px;text-transform:uppercase">Success Target (€)</th>'
+    +'</tr></thead><tbody>'+rows+'</tbody></table>'
+    +'<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px">'
+    +'<button onclick="closeForecastModal()" style="padding:8px 20px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer;font-size:13px">Cancel</button>'
+    +'<button onclick="saveForecastFromModal('+years.length+')" style="padding:8px 20px;border:none;border-radius:6px;background:var(--gold2);color:#fff;cursor:pointer;font-size:13px;font-weight:600">Save</button>'
+    +'</div>'
+    +'</div>';
+  document.body.appendChild(modal);
+}
+
+function closeForecastModal(){
+  const m = document.getElementById('fc-modal');
+  if(m) m.remove();
+}
+
+function saveForecastFromModal(count){
+  const f = loadForecast();
+  const years = [];
+  const baseYears = f.years && f.years.length ? f.years : [
+    {year:2023},{year:2024},{year:2025},{year:2026},{year:2027}
+  ];
+  for(let i=0; i<count; i++){
+    years.push({
+      year: baseYears[i] ? baseYears[i].year : (2023+i),
+      retainer: parseFloat(document.getElementById('fc-ret-'+i)?.value||0)||0,
+      success:  parseFloat(document.getElementById('fc-suc-'+i)?.value||0)||0,
+      retainerTarget: parseFloat(document.getElementById('fc-rtt-'+i)?.value||0)||0,
+      successTarget:  parseFloat(document.getElementById('fc-sut-'+i)?.value||0)||0,
+    });
+  }
+  saveForecast({...f, years});
+  document.getElementById('fc-modal').remove();
   renderDashboard();
 }
 
@@ -2341,6 +2461,8 @@ function downloadBizDevExcel(){
 
 
 function removeRetainerClient(clientId){
+  clientId = (clientId||'').toLowerCase();
+  clientId = (clientId||'').toLowerCase();
   const retainers = loadRetainers();
   const name = retainers[clientId]?.pastName || CLIENTS[clientId]?.name || clientId;
   if(!confirm('Remove '+name+' from retainer tracker?')) return;
@@ -2397,6 +2519,15 @@ async function loadTasksFromSheet(){
 }
 function loadTasks(){ try{ return JSON.parse(localStorage.getItem(TASKS_KEY)||'[]'); }catch(e){ return []; } }
 function saveTasks(d){
+  // Clean created dates before saving (avoid raw Date.toString() strings)
+  d = (d||[]).map(function(t){
+    var c = t.created||'';
+    if(c && c.length > 15) c = c.substring(0,10); // trim to yyyy-MM-dd
+    // Sanitise client - must be plain string not Date/object
+    var cl = t.client||'';
+    if(typeof cl !== 'string') cl = '';
+    return Object.assign({}, t, {created: c, client: cl});
+  });
   // Write to sheet (primary) + localStorage (cache)
   try{ localStorage.setItem(TASKS_KEY,JSON.stringify(d)); }catch(e){}
   if(APPS_SCRIPT_URL && APPS_SCRIPT_URL!=='YOUR_APPS_SCRIPT_URL_HERE'){
@@ -2463,7 +2594,7 @@ function renderTasksView(){
   const tasks = loadTasks();
 
   const defaultOrder = ['Preston Capital','Dynam Capital','WorldSpire','Spoko','Morphosis','Alaluz Capital','DeepDetection'];
-  const extraClients = [...new Set(tasks.map(t=>t.client).filter(c=>c&&!defaultOrder.includes(c)))];
+  const extraClients = [...new Set(tasks.map(t=>t.client?String(t.client):'').filter(c=>c&&!defaultOrder.includes(c)))];
   const allClients = loadClientOrder() || [...defaultOrder, ...extraClients];
 
   const addBtn = (client, person) =>
@@ -2544,7 +2675,7 @@ function renderDashboard(){
   const bdTotal = bdHot.reduce((s,b)=>s+parseMoney(b.value||0),0);
 
   // Total retainer income
-  const totalRetainer = Object.values(retainers).reduce((s,r)=>s+(parseFloat(r.monthlyAmt||0)),0);
+  const totalRetainer = Object.values(retainers).filter(r=>!r.past).reduce((s,r)=>s+(parseFloat(r.monthlyAmt||0)),0);
   const totalSuccess  = Object.values(retainers).reduce((s,r)=>s+parseMoney(r.successAmt||0),0);
 
   el.innerHTML = `
@@ -3461,10 +3592,11 @@ async function enrichContact(contact){
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {'Content-Type':'application/json','anthropic-version':'2023-06-01','x-api-key':key,'anthropic-dangerous-direct-browser-access':'true'},
+      headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 300,
+        max_tokens: 200,
+        tools: [{type:'web_search_20250305', name:'web_search'}],
         messages: [{role:'user', content: prompt}]
       })
     });
@@ -3528,7 +3660,7 @@ async function scanNewContacts(client, days){
     found = await enrichNewContacts(found);
 
     _pendingNewContacts = found;
-    renderNewContactsPanel(found, client || curClient);
+    renderNewContactsPanel(found, client || client);
     setSS('ok', found.length + ' new contacts found · review below');
     if(btn) btn.textContent = '↻ Refresh';
   } catch(e) {
@@ -3591,7 +3723,7 @@ function renderNewContactsPanel(contacts, client){
       + (lmPreview ? '<div style="font-size:11px;color:#888;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+lmPreview+'</div>' : '')
       + '</div>'
       + '<span class="pill '+statusCls+'" style="flex-shrink:0;font-size:10px">'+statusLabel+'</span>'
-      + '<button class="nc-btn-add" onclick="acceptNewContact(+this.dataset.idx,this.dataset.client)" data-idx="'+i+'" data-client="'+client+'" style="flex-shrink:0;font-size:11px;padding:3px 10px;background:#D97706;color:#fff;border:none;border-radius:4px;cursor:pointer">Add</button>'
+      + '<button class="nc-btn-add" data-idx="'+i+'" data-client="'+client+'" onclick="acceptNewContact(+this.dataset.idx,this.dataset.client)" style="flex-shrink:0;font-size:11px;padding:3px 10px;background:#D97706;color:#fff;border:none;border-radius:4px;cursor:pointer">Add</button>'
       + '<button class="nc-btn-skip" onclick="skipNewContact('+i+')" style="flex-shrink:0;font-size:11px;padding:3px 10px;background:none;border:1px solid #ccc;color:#666;border-radius:4px;cursor:pointer">Skip</button>'
       + '</div>';
   });
@@ -3667,7 +3799,7 @@ async function acceptNewContact(idx, client){
       owner: 'BEV', lm: nc.lm || '', ld: nc.ld ? new Date(nc.ld) : null,
       ldStr: nc.ld ? nc.ld.slice(0,10) : '—',
       days: nc.ld ? Math.round((new Date()-new Date(nc.ld))/86400000) : null,
-      desc: nc.desc || '', action: '', log: '', ticketCur: '', ticketAmt: '',
+      desc: '', action: '', log: '', ticketCur: '', ticketAmt: '',
       actionLog: nc.lm ? [{date:nc.ld||'',type:'reply',txt:(nc.lm||'').slice(0,150)}] : [],
       recent: true
     };
@@ -3699,8 +3831,7 @@ async function acceptNewContact(idx, client){
       body: JSON.stringify({action:'add_new', client:client, contact:{
         name:nc.name, email:nc.email, company:company,
         status:nc.status, owner:'BEV', lm:nc.lm||'',
-        contactDate:nc.ld||'', introMade:nc.introMade,
-        desc: nc.desc || '', location: nc.location || ''
+        contactDate:nc.ld||'', introMade:nc.introMade
       }}),
       redirect:'follow'
     }).then(function(){ setSS('ok','Saved · '+new Date().toLocaleTimeString().slice(0,5)); })
