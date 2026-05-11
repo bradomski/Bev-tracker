@@ -946,6 +946,7 @@ function doLogin(){
   document.getElementById('sb-av').textContent=curUser[0];
   syncClientConfigFromSheet();
   document.getElementById('sb-nm').textContent=curUser;
+  _patchEnrichContact();
   document.getElementById('tb-badge').textContent=role==='admin'?'Admin':'Client';
   buildNav(); loadData(); document.getElementById('ref-btn').style.display=(role==='admin'?'':'none');document.getElementById('dl-btn').style.display=(role==='admin'?'':'none'); if(role==='admin'){initBDContacts();
     initTasks();      // async — loads from sheet
@@ -3718,6 +3719,35 @@ let _pendingNewContacts = []; // contacts waiting for user review
 // CONTACT ENRICHMENT — uses Claude API to fill in location, title,
 // company description from email/name/company
 // ══════════════════════════════════════════════════════════════════
+
+function _patchEnrichContact(){
+  const src = enrichContact.toString();
+  if(src.includes('anthropic-dangerous-direct-browser-access')) return;
+  window.enrichContact = async function enrichContact(contact){
+    const key = localStorage.getItem('bev-claude-key') || '';
+    if(!key) return contact;
+    try {
+      const prompt = 'Given this contact: Name: ' + contact.name
+        + ', Email: ' + contact.email
+        + ', Company (guessed from email): ' + (contact.company || (contact.email||'').split('@')[1] || '')
+        + '\n\nProvide a JSON object with these fields:\n- title: their likely job title\n- company: proper company name\n- location: city and country\n- desc: 1-2 sentence company description\n- category: one of SFO, MFO, WM, Endowment, Sovereign, Pension, RIA, Other\nReturn ONLY valid JSON, no markdown.';
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','x-api-key':key,'anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:300,messages:[{role:'user',content:prompt}]})
+      });
+      const d = await res.json();
+      const txt=(d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+      const enriched=JSON.parse(txt.replace(/```json|```/g,'').trim());
+      return Object.assign({},contact,{title:enriched.title||contact.title||'',company:enriched.company||contact.company||'',location:enriched.location||contact.location||'',desc:enriched.desc||contact.desc||'',category:enriched.category||contact.category||''});
+    } catch(e) {
+      console.warn('Enrichment failed:',e.message);
+      if(!contact.company&&contact.email){const d=contact.email.split('@')[1]||'';contact.company=d.replace(/\.com|\.vc|\.io|\.fund/g,'').split('.').pop().replace(/^./,c=>c.toUpperCase());}
+      return contact;
+    }
+  };
+  console.log('enrichContact self-patched');
+}
 
 async function enrichContact(contact){
   const key = localStorage.getItem('bev-claude-key') || '';
