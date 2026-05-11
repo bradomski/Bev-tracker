@@ -694,8 +694,7 @@ code{font-family:var(--mono)}
     row.appendChild(label); row.appendChild(inp); row.appendChild(btn);
     el.appendChild(row);
   });
-})();
-          </script>
+}
 
           <div class="set-sec">
             <div class="set-title">Add new client mandate</div>
@@ -1000,6 +999,10 @@ function switchClient(id,btn){
   curClient=id;expandedId=null;
   // Clear action log (client-specific)
   Object.keys(actionLog).forEach(k=>delete actionLog[k]);
+  // Clear pending new contacts — they belong to previous client
+  _pendingNewContacts = [];
+  const oldPanel = document.getElementById('nc-panel');
+  if(oldPanel) oldPanel.remove();
   // Auto-scan will trigger inside loadData if not scanned today for this client
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
   if(btn)btn.classList.add('on');
@@ -1566,7 +1569,7 @@ function removeContact(id){
   expandedId=null;
   // Store removed IDs so refresh doesn't re-add them
   const removed=JSON.parse(localStorage.getItem('bev-removed-'+curClient)||'[]');
-  if(!removed.map(String).includes(String(id))) removed.push(String(id));
+  removed.push(String(id)); // store as string for consistent comparison
   localStorage.setItem('bev-removed-'+curClient,JSON.stringify(removed));
   saveLocal();
   updateCounts();
@@ -1722,7 +1725,7 @@ async function loadData(forceRefresh){
   }
   // Filter out previously removed contacts
   const removed=JSON.parse(localStorage.getItem('bev-removed-'+curClient)||'[]');
-  if(removed.length) contacts=contacts.filter(r=>!removed.map(String).includes(String(r.id)));
+  if(removed.length) contacts=contacts.filter(r=>!removed.includes(String(r.id)));
   loadLocal();
   setRT();
   // Merge any locally-added contacts that haven't been refreshed from sheet yet
@@ -2491,13 +2494,14 @@ function downloadBizDevExcel(){
 
 function removeRetainerClient(clientId){
   clientId = (clientId||'').toLowerCase();
-  clientId = (clientId||'').toLowerCase();
   const retainers = loadRetainers();
-  const name = retainers[clientId]?.pastName || CLIENTS[clientId]?.name || clientId;
+  const name = (retainers[clientId] && retainers[clientId].pastName) || (CLIENTS[clientId] && CLIENTS[clientId].name) || clientId;
   if(!confirm('Remove '+name+' from retainer tracker?')) return;
   delete retainers[clientId];
+  // Save to localStorage AND sheet
   saveRetainers(retainers);
-  renderDashboard();
+  // Force re-render dashboard immediately
+  setTimeout(function(){ renderDashboard(); }, 100);
 }
 
 function removeSuccessFeeClient(clientId){
