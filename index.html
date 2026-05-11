@@ -1566,7 +1566,7 @@ function removeContact(id){
   expandedId=null;
   // Store removed IDs so refresh doesn't re-add them
   const removed=JSON.parse(localStorage.getItem('bev-removed-'+curClient)||'[]');
-  removed.push(id);
+  if(!removed.map(String).includes(String(id))) removed.push(String(id));
   localStorage.setItem('bev-removed-'+curClient,JSON.stringify(removed));
   saveLocal();
   updateCounts();
@@ -1722,7 +1722,7 @@ async function loadData(forceRefresh){
   }
   // Filter out previously removed contacts
   const removed=JSON.parse(localStorage.getItem('bev-removed-'+curClient)||'[]');
-  if(removed.length) contacts=contacts.filter(r=>!removed.includes(r.id));
+  if(removed.length) contacts=contacts.filter(r=>!removed.map(String).includes(String(r.id)));
   loadLocal();
   setRT();
   // Merge any locally-added contacts that haven't been refreshed from sheet yet
