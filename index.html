@@ -1600,11 +1600,11 @@ function updateBulkBar(){
 }
 // Wire up checkbox changes via event delegation on the leads list
 function wireCheckboxes(){
-  const list=document.getElementById('leads-list')||document.getElementById('view-leads');
+  const list=document.getElementById('lead-list');
   if(!list||list._bulkWired) return;
   list._bulkWired=true;
   list.addEventListener('change',function(e){
-    if(e.target.classList.contains('contact-chk')) updateBulkBar();
+    if(e.target.classList.contains('sel-chk')) updateBulkBar();
   });
 }
 
@@ -1641,6 +1641,7 @@ function renderLeads(){
   wireCheckboxes();
   const data=getFiltered();
   const list=document.getElementById('lead-list');
+  if(!list) return;
   if(!data.length){
     list.innerHTML=`<div class="empty-st"><div class="empty-ic">○</div><div class="empty-t">No contacts</div><div style="font-size:11px">No contacts in this view</div></div>`;
     return;
@@ -1809,16 +1810,19 @@ function buildExpand(r){
 }
 
 function gasRemove(contactId){
-  // Remove from sheet via GAS — no confirm dialog, just fire and forget
   if(!APPS_SCRIPT_URL||APPS_SCRIPT_URL==='YOUR_APPS_SCRIPT_URL_HERE') return;
+  // id is 1-indexed sheet row number
+  var rowNum = parseInt(String(contactId), 10);
+  if(isNaN(rowNum)) { console.error('gasRemove: invalid id', contactId); return; }
+  console.log('gasRemove: sending row='+rowNum+' client='+curClient);
   fetch(APPS_SCRIPT_URL,{
     method:'POST',
     headers:{'Content-Type':'text/plain'},
-    body:JSON.stringify({action:'remove',client:curClient,id:contactId}),
+    body:JSON.stringify({action:'remove',client:curClient,id:rowNum}),
     redirect:'follow'
   }).then(function(r){return r.json();})
-   .then(function(d){console.log('removed id='+contactId+' result:',JSON.stringify(d));})
-   .catch(function(e){console.error('remove err:',e.message);});
+   .then(function(d){console.log('gasRemove result:',JSON.stringify(d));})
+   .catch(function(e){console.error('gasRemove err:',e.message);});
 }
 
 function removeContact(id){
@@ -2599,6 +2603,7 @@ function saveForecast(d){
     setSS('saving','Saving…');
     fetch(APPS_SCRIPT_URL,{
       method:'POST',
+      headers:{'Content-Type':'text/plain'},
       body:JSON.stringify({action:'save_setting', key:'forecast', value:d}),
       redirect:'follow'
     }).then(function(){ setSS('ok','Saved · '+new Date().toLocaleTimeString().slice(0,5)); })
@@ -2854,6 +2859,7 @@ function saveRetainers(d){
     setSS('saving','Saving…');
     fetch(APPS_SCRIPT_URL,{
       method:'POST',
+      headers:{'Content-Type':'text/plain'},
       body:JSON.stringify({action:'save_setting', key:'retainers', value:d}),
       redirect:'follow'
     }).then(function(){ setSS('ok','Saved · '+new Date().toLocaleTimeString().slice(0,5)); })
