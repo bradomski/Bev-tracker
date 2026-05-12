@@ -517,9 +517,9 @@ window.addEventListener('load', function(){
         <button class="l-role" id="lr-c" onclick="setLR('client')">Client Portal</button>
       </div>
     </div>
-    <div class="lf"><label>Username</label><input id="lu" placeholder="benjamin" onkeydown="if(event.key==='Enter')doLogin()"/></div>
-    <div class="lf"><label>Password</label><input id="lp" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/></div>
-    <button class="l-btn" onclick="doLogin()">Enter Portal</button>
+    <div class="lf"><label>Username</label><input id="lu" name="username" autocomplete="username" class="l-inp" placeholder="benjamin" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+    <div class="lf"><label>Password</label><input id="lp" name="password" autocomplete="current-password" class="l-inp" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+    <button class="l-btn" id="l-submit" onclick="doLogin()">Enter Portal</button>
   </div>
 </div>
 
