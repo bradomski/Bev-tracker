@@ -3294,28 +3294,26 @@ function kpiCard(label,value,sub,color,bg,onclick){
 
 
 function buildClientPipelineData(){
-  // For currently loaded client, use live contacts. For others use retainer data.
   const data = [];
-  Object.entries(CLIENTS).forEach(([id,cfg])=>{
-    const savedKey = 'bev-tracker-'+id;
-    let cts = [];
-    // Try to get from localStorage
-    try{
-      const saved = JSON.parse(localStorage.getItem(savedKey)||'{}');
-      // We only have ticket overrides from localStorage, not full contacts
-    }catch(e){}
-    // For the current client we have live contacts
-    const isCurrentClient = id === curClient;
-    const ctList = isCurrentClient ? contacts : [];
+  Object.entries(CLIENTS).forEach(function([id,cfg]){
+    // Use live contacts for current client, cached contacts for all others
+    let ctList = [];
+    if(id === curClient){
+      ctList = contacts;
+    } else {
+      try{
+        const cacheRaw = localStorage.getItem('bev-cache-'+id);
+        if(cacheRaw){
+          const cached = JSON.parse(cacheRaw);
+          ctList = (cached.rows||[]).map(parseRow);
+        }
+      }catch(e){}
+    }
     const hotM  = ctList.filter(r=>r.status==='1 Hot').reduce((s,r)=>s+parseTicketUSD(r),0);
     const warmM = ctList.filter(r=>r.status==='2 Warm').reduce((s,r)=>s+parseTicketUSD(r),0);
     const totalM = hotM + warmM;
     const hotLeads = ctList.filter(r=>r.status==='1 Hot'&&r.ticketAmt).map(r=>r.name.split(' ')[0]);
-    data.push({
-      id, name:cfg.name,
-      total:ctList.length, hotM, warmM, totalM,
-      hotLeads: hotLeads.slice(0,3)
-    });
+    data.push({id, name:cfg.name, total:ctList.length, hotM, warmM, totalM, hotLeads:hotLeads.slice(0,3)});
   });
   return data;
 }
