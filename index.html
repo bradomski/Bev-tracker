@@ -3990,6 +3990,7 @@ async function acceptNewContact(idx, client){
       method: 'POST',
       body: JSON.stringify({action:'add_new', client:client, contact:{
         name:nc.name, email:nc.email, company:company,
+        location:nc.location||'', desc:nc.desc||'',
         status:nc.status, owner:'BEV', lm:nc.lm||'',
         contactDate:nc.ld||'', introMade:nc.introMade
       }}),
