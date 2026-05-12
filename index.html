@@ -686,7 +686,7 @@ window.addEventListener('load', function(){
             <div id="pw-list" style="margin-top:10px"></div>
           </div>
           <script>
-            (function buildPwList(){
+            window.buildPwList = function(){
   const el = document.getElementById('pw-list');
   if(!el) return;
   if(typeof CLIENTS === 'undefined' || typeof AUTH === 'undefined'){
@@ -741,7 +741,7 @@ window.addEventListener('load', function(){
     const name = (CLIENTS[cid] && CLIENTS[cid].name) ? CLIENTS[cid].name : cid;
     makePwRow(cid, name, pw, (function(id){ return function(){ saveClientPw(id); }; })(cid));
   });
-}
+};
 
           <div class="set-sec">
             <div class="set-title">Add new client mandate</div>
@@ -2772,6 +2772,7 @@ function saveTasks(d){
     setSS('saving','Saving…');
     fetch(APPS_SCRIPT_URL,{
       method:'POST',
+      headers:{'Content-Type':'text/plain'},
       body:JSON.stringify({action:'save_tasks', tasks:d}),
       redirect:'follow'
     }).then(function(){ setSS('ok','Saved · '+new Date().toLocaleTimeString().slice(0,5)); })
