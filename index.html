@@ -964,7 +964,7 @@ const LT = {
 
 // state
 let role='admin', curUser='', curClient='preston', loginRole='admin';
-let contacts=[], actionLog={}, expandedId=null, activeTab='latest', activeCat='ALL', weeklyDone=new Set();
+let contacts=[], actionLog={}, expandedId=null, activeTab='latest', activeCat='ALL', weeklyDone=new Set(), _selectedContacts=new Set();
 
 // ═══════════ AUTH ═══════════
 function setLR(r){loginRole=r;document.getElementById('lr-a').classList.toggle('on',r==='admin');document.getElementById('lr-c').classList.toggle('on',r==='client');}
