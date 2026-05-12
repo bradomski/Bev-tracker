@@ -892,17 +892,27 @@ const DEFAULT_AUTH = {
 function loadClientConfig(){
   try{
     const saved=localStorage.getItem('bev-clients-config');
-    if(saved)return JSON.parse(saved);
+    if(saved){
+      const parsed=JSON.parse(saved);
+      // Only restore CLIENTS config (subjects, emails etc), NOT auth passwords
+      return {clients:parsed.clients||DEFAULT_CLIENTS, auth:{admin:{...DEFAULT_AUTH.admin}, client:{...DEFAULT_AUTH.client}}};
+    }
   }catch(e){}
   return {clients:DEFAULT_CLIENTS, auth:{admin:{...DEFAULT_AUTH.admin}, client:{...DEFAULT_AUTH.client}}};
 }
 function saveClientConfig(){
-  localStorage.setItem('bev-clients-config',JSON.stringify({clients:CLIENTS,auth:AUTH}));
+  // Save only clients config, never auth (passwords stay in code)
+  localStorage.setItem('bev-clients-config',JSON.stringify({clients:CLIENTS}));
 }
 
 const _cfg = loadClientConfig();
 let CLIENTS = _cfg.clients;
 let AUTH = {admin:_cfg.auth.admin, client:_cfg.auth.client};
+// Apply any saved password overrides
+try{
+  const _pwOvr=JSON.parse(localStorage.getItem('bev-pw-overrides')||'{}');
+  Object.keys(_pwOvr).forEach(function(k){ AUTH.client[k]=_pwOvr[k]; DEFAULT_AUTH.client[k]=_pwOvr[k]; });
+}catch(e){}
 const STATUS_ORDER = {'1 Hot':0,'2 Warm':1,'3 Pre Check':2,'5 OOO':3,'4 No':4};
 const SM = {'1 Hot':'s-hot','2 Warm':'s-warm','3 Pre Check':'s-pre','4 No':'s-no','5 OOO':'s-ooo'};
 const LT = {
@@ -925,7 +935,13 @@ function saveClientPw(clientId){
   const pw = el.value.trim();
   if(!pw){ alert('Please enter a password.'); return; }
   AUTH.client[clientId] = pw;
-  saveClientConfig();
+  DEFAULT_AUTH.client[clientId] = pw; // update default too
+  // Save pw overrides separately from client config
+  try{
+    const pwStore = JSON.parse(localStorage.getItem('bev-pw-overrides')||'{}');
+    pwStore[clientId] = pw;
+    localStorage.setItem('bev-pw-overrides', JSON.stringify(pwStore));
+  }catch(e){}
   flash('Password saved for ' + (CLIENTS[clientId]?.name || clientId));
 }
 
