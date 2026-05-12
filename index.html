@@ -955,16 +955,23 @@ function doLogin(){
   document.getElementById('sb-av').textContent=curUser[0];
   document.getElementById('sb-nm').textContent=curUser;
   document.getElementById('tb-badge').textContent=role==='admin'?'Admin':'Client';
-  buildNav(); loadData(); document.getElementById('ref-btn').style.display=(role==='admin'?'':'none');document.getElementById('dl-btn').style.display=(role==='admin'?'':'none'); if(role==='admin'){initBDContacts();
-    initTasks();      // async — loads from sheet
-    initRetainers();  // async — loads from sheet
-    // Load forecast from sheet
+  buildNav(); loadData();
+  document.getElementById('ref-btn').style.display=(role==='admin'?'':'none');
+  document.getElementById('dl-btn').style.display=(role==='admin'?'':'none');
+  if(role==='admin'){
+    initBDContacts();
+    initTasks();
+    initRetainers();
     if(APPS_SCRIPT_URL && APPS_SCRIPT_URL!=='YOUR_APPS_SCRIPT_URL_HERE'){
       loadForecastFromSheet().then(function(fc){
         if(fc && Object.keys(fc).length>0) try{ localStorage.setItem(FORECAST_KEY,JSON.stringify(fc)); }catch(e){}
       }).catch(function(){});
     }
-    showView('dashboard');}
+    showView('dashboard');
+  } else {
+    // Client login — go straight to their pipeline
+    showView('leads');
+  }
 }
 function cap(s){return s.charAt(0).toUpperCase()+s.slice(1);}
 
