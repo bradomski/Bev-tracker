@@ -1147,16 +1147,18 @@ function parseRow(r,i){
              'Hot':'1 Hot','Warm':'2 Warm','Pre Check':'3 Pre Check','No':'4 No','OOO':'5 OOO'};
     return m[s]||s||'3 Pre Check';
   })(status);
-  const catRaw = isObj ? (r.cat||r.category||'') : (r[8]||'');
+  // cat: stored in sheet col 14. If blank, infer from description.
+  const catRaw = isObj ? (r.cat||'') : (r[13]||'');
   const cat = (function(raw,d){
     if(raw) return raw.toUpperCase().trim();
     const t=(d||'').toLowerCase();
-    if(/single.family|\bsfo\b|family office(?! advis)/.test(t)) return 'SFO';
-    if(/multi.family|\bmfo\b/.test(t)) return 'MFO';
+    if(/single.family|\bsfo\b|family office(?! advis)|\bfo\b.{0,20}family/.test(t)) return 'SFO';
+    if(/multi.family|\bmfo\b|multi family office/.test(t)) return 'MFO';
     if(/\bendowment\b/.test(t)) return 'ENDOWMENT';
     if(/sovereign wealth|sovereign fund/.test(t)) return 'SOVEREIGN';
     if(/pension fund|pension plan|pension trust/.test(t)) return 'PENSION';
-    if(/wealth manag|private bank|registered investment|\bria\b/.test(t)) return 'WM';
+    if(/wealth manag|private bank|registered investment|\bria\b|asset manag|financial advis/.test(t)) return 'WM';
+    if(/\bfamily office\b/.test(t)) return 'SFO';
     return '';
   })(catRaw, isObj ? (r.desc||'') : (r[9]||''));
   return {id:rowId, name, email, company, location, status:normStatus, owner, lm, ld,
@@ -1429,22 +1431,74 @@ function ownerTag(o){
   return`<span class="owner-tag ${isBEV?'owner-bev':'owner-client'}">${o||'BEV'}</span>`;
 }
 
+function getCats(){
+  try{var c=JSON.parse(localStorage.getItem('bev-custom-cats')||'null');if(c&&c.length)return c;}catch(e){}
+  return ['SFO','MFO','WM','ENDOWMENT','SOVEREIGN','PENSION','RIA'];
+}
+function setCatOverride(id,cat){
+  // Update in memory immediately
+  contacts=contacts.map(function(c){return c.id==id?Object.assign({},c,{cat:cat}):c;});
+  renderLeads();
+  // Persist to sheet via GAS
+  callGAS({action:'update', id:id, fields:{cat:cat}}).catch(function(){});
+}
+function showCatPicker(id,anchorEl){
+  document.querySelectorAll('.cat-picker-popup').forEach(function(e){e.remove();});
+  var cats=getCats();
+  var pop=document.createElement('div');
+  pop.className='cat-picker-popup';
+  pop.style.cssText='position:fixed;background:var(--paper2);border:1px solid var(--border);border-radius:6px;padding:8px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.2);display:flex;flex-wrap:wrap;gap:5px;max-width:240px';
+  var rect=anchorEl.getBoundingClientRect();
+  pop.style.top=(rect.bottom+4)+'px';
+  pop.style.left=rect.left+'px';
+  [''].concat(cats).forEach(function(c){
+    var b=document.createElement('button');
+    b.style.cssText='font-size:11px;padding:3px 10px;border-radius:10px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--ink2)';
+    b.textContent=c||'✕ Clear';
+    b.onclick=function(){setCatOverride(id,c);pop.remove();};
+    pop.appendChild(b);
+  });
+  var addB=document.createElement('button');
+  addB.style.cssText='font-size:11px;padding:3px 10px;border-radius:10px;cursor:pointer;border:1px dashed var(--gold);background:transparent;color:var(--gold);width:100%;margin-top:2px';
+  addB.textContent='+ New category';
+  addB.onclick=function(){
+    var nm=(prompt('New category name:')||'').toUpperCase().trim();
+    if(!nm)return;
+    var ex=getCats();if(!ex.includes(nm)){ex.push(nm);localStorage.setItem('bev-custom-cats',JSON.stringify(ex));}
+    setCatOverride(id,nm);pop.remove();renderCatBtns();
+  };
+  pop.appendChild(addB);
+  document.body.appendChild(pop);
+  setTimeout(function(){document.addEventListener('click',function h(){pop.remove();document.removeEventListener('click',h);},{once:true});},50);
+}
 function renderCatBtns(){
-  const bar = document.getElementById('cat-bar');
-  if(!bar) return;
-  const cats = ['ALL','SFO','MFO','WM','ENDOWMENT','SOVEREIGN','PENSION','RIA','OTHER'];
-  const labels = {ALL:'All',SFO:'SFO',MFO:'MFO',WM:'WM',ENDOWMENT:'Endowment',SOVEREIGN:'Sovereign',PENSION:'Pension',RIA:'RIA',OTHER:'Other'};
-  bar.innerHTML = '<span class="cat-lbl" style="font-size:10px;font-weight:600;color:var(--ink3);align-self:center;letter-spacing:.05em">Category:</span>';
+  var bar=document.getElementById('cat-bar');
+  if(!bar)return;
+  var cats=['ALL'].concat(getCats());
+  bar.innerHTML='';
+  var lbl=document.createElement('span');
+  lbl.style.cssText='font-size:10px;font-weight:600;color:var(--ink3);align-self:center;letter-spacing:.05em;margin-right:4px';
+  lbl.textContent='Category:';
+  bar.appendChild(lbl);
   cats.forEach(function(c){
-    const btn = document.createElement('button');
-    btn.className = 'sb-btn' + (activeCat===c ? ' on' : '');
-    btn.style.cssText = 'font-size:11px;padding:3px 10px;border-radius:3px;cursor:pointer;border:1px solid var(--border);background:' + (activeCat===c ? 'var(--gold)' : 'transparent') + ';color:' + (activeCat===c ? '#fff' : 'var(--ink2)') + ';font-weight:' + (activeCat===c ? '600' : '400');
-    btn.textContent = labels[c];
-    btn.onclick = function(){ activeCat = c; renderCatBtns(); renderLeads(); };
+    var btn=document.createElement('button');
+    btn.className='sb-btn'+(activeCat===c?' on':'');
+    btn.style.cssText='font-size:11px;padding:2px 9px;border-radius:3px;cursor:pointer;border:1px solid var(--border);background:'+(activeCat===c?'var(--gold)':'transparent')+';color:'+(activeCat===c?'#fff':'var(--ink2)')+';margin:0 1px';
+    btn.textContent=c==='ALL'?'All':c.charAt(0)+c.slice(1).toLowerCase();
+    btn.onclick=function(){activeCat=c;renderCatBtns();renderLeads();};
     bar.appendChild(btn);
   });
+  var addBtn=document.createElement('button');
+  addBtn.style.cssText='font-size:11px;padding:2px 8px;border-radius:3px;cursor:pointer;border:1px dashed var(--gold);background:transparent;color:var(--gold);margin:0 1px';
+  addBtn.textContent='+ Add';
+  addBtn.onclick=function(){
+    var nm=(prompt('New category name:')||'').toUpperCase().trim();
+    if(!nm)return;
+    var ex=getCats();if(!ex.includes(nm)){ex.push(nm);localStorage.setItem('bev-custom-cats',JSON.stringify(ex));}
+    renderCatBtns();renderLeads();
+  };
+  bar.appendChild(addBtn);
 }
-
 function renderLeads(){
   renderCatBtns();
   const data=getFiltered();
@@ -1457,10 +1511,15 @@ function renderLeads(){
     const isExp=r.id==expandedId;
     const displayName=r.company||r.name;
     const displaySub=r.company?r.name:'';
+    const catColors={'SFO':'#4a7fc1','MFO':'#7c4fc1','WM':'#2a9d8f','ENDOWMENT':'#e76f51','SOVEREIGN':'#264653','PENSION':'#2c7873','RIA':'#6b4226','':'#aaa'};
+    const catLabel=r.cat||(r.cat===''?'':'');
     return`<div class="lead-row${r.stale&&!isExp?' stale':''}${isExp?' exp':''}" id="row-${r.id}">
       <div class="lm" onclick="toggleExp('${r.id}')">
         <div class="lm-main">
-          <div class="lm-company">${displayName}</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div class="lm-company">${displayName}</div>
+            <span onclick="event.stopPropagation();showCatPicker('${r.id}',this)" style="font-size:10px;padding:1px 6px;border-radius:10px;cursor:pointer;background:${catColors[r.cat]||'#ccc'};color:#fff;white-space:nowrap;font-weight:500;opacity:0.9">${r.cat||'+'}</span>
+          </div>
           ${displaySub?`<div class="lm-name">${displaySub}</div>`:''}
           ${r.email?`<div class="lm-email">${r.email}</div>`:''}
           ${r.location?`<div class="lm-loc-inline">📍 ${r.location}</div>`:''}
