@@ -694,7 +694,7 @@ window.addEventListener('load', function(){
             <div id="pw-list" style="margin-top:10px"></div>
           </div>
           <script>
-            window.buildPwList = function(){
+            function buildPwList(){
   const el = document.getElementById('pw-list');
   if(!el) return;
   if(typeof CLIENTS === 'undefined' || typeof AUTH === 'undefined'){
@@ -749,7 +749,7 @@ window.addEventListener('load', function(){
     const name = (CLIENTS[cid] && CLIENTS[cid].name) ? CLIENTS[cid].name : cid;
     makePwRow(cid, name, pw, (function(id){ return function(){ saveClientPw(id); }; })(cid));
   });
-};
+}
 
           <div class="set-sec">
             <div class="set-title">Add new client mandate</div>
@@ -2059,7 +2059,7 @@ async function loadFromSheet(){
   // Clear stale action logs when loading fresh contacts for this client
   Object.keys(actionLog).forEach(k=>delete actionLog[k]);
   // Cache the fresh data
-  setCachedRows(d.rows, d.newActivity||[], _loadClient);
+  setCachedRows(d.rows, d.newActivity||[], typeof _loadClient!=='undefined' ? _loadClient : curClient);
   Object.keys(actionLog).forEach(k=>delete actionLog[k]);
   contacts=d.rows.map(parseRow);
   if(d.newActivity&&d.newActivity.length){
@@ -2359,7 +2359,7 @@ async function sendChat(){
   }catch(e){document.getElementById('ty')?.remove();addSMsg('a','Error: '+e.message);}
 }
 function resetSarah(){
-  document.getElementById('s-msgs').innerHTML='<div class="sm a"><div class="sm-av a">S</div><div><div class="sm-bub">Switched to <strong>'+(CLIENTS[curClient]?.name||curClient)+'</strong>. Ask me anything about these leads.</div></div></div>';
+  const _smsgs=document.getElementById('s-msgs'); if(_smsgs) _smsgs.innerHTML='<div class="sm a"><div class="sm-av a">S</div><div><div class="sm-bub">Switched to <strong>'+(CLIENTS[curClient]?.name||curClient)+'</strong>. Ask me anything about these leads.</div></div></div>';
 }
 
 // ═══════════ SETTINGS ═══════════
