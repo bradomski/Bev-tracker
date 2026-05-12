@@ -483,7 +483,13 @@ code{font-family:var(--mono)}
 .nc-btn-skip{background:transparent;color:#999;border:1px solid #ddd;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;}
 .nc-btn-skip:hover{color:#e53e3e;border-color:#e53e3e;}
 .nc-intro-badge{background:#D1FAE5;color:#065F46;border-radius:8px;padding:1px 6px;font-size:10px;font-weight:600;}
+.lead-row .sel-chk { display:none; }
+.lead-row:hover .sel-chk, .lead-row.selected .sel-chk { display:inline-block; }
+.lead-row.selected { background: var(--hot-bg) !important; }
+#bulk-bar { display:none; position:sticky; top:0; z-index:100; background:var(--gold2); color:#fff; padding:8px 16px; border-radius:6px; margin:6px 0; align-items:center; gap:12px; font-size:12px; font-weight:600; }
+#bulk-bar.show { display:flex; }
 </style>
+
 
 <script>
 window.addEventListener('load', function(){
@@ -594,6 +600,8 @@ window.addEventListener('load', function(){
       <div class="cat-bar" id="cat-bar" style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 0 4px">
         <span class="cat-lbl" style="font-size:10px;font-weight:600;color:var(--ink3);align-self:center;letter-spacing:.05em">Category:</span>
       </div>
+      <div id="bulk-bar"><span id="bulk-count">0 selected</span><button onclick="bulkRemoveContacts()" style="background:#fff;color:var(--gold2);border:none;border-radius:4px;padding:3px 12px;cursor:pointer;font-weight:700;font-size:12px">🗑 Remove selected</button><button onclick="clearSelection()" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.5);border-radius:4px;padding:3px 10px;cursor:pointer;font-size:12px">Cancel</button></div>
+
       <div class="tbl-hd">
         <div class="th" style="padding-left:0">Company / Description / Location</div>
         <div class="th">Status</div>
@@ -1527,6 +1535,79 @@ function showCatPicker(id,anchorEl){
   document.body.appendChild(pop);
   setTimeout(function(){document.addEventListener('click',function h(){pop.remove();document.removeEventListener('click',h);},{once:true});},50);
 }
+function toggleSelectContact(id){
+  const sid=String(id);
+  if(_selectedContacts.has(sid)) _selectedContacts.delete(sid); else _selectedContacts.add(sid);
+  // Update row highlight
+  const row=document.getElementById('row-'+id);
+  if(row) row.classList.toggle('selected',_selectedContacts.has(sid));
+  const chk=row?.querySelector('.sel-chk');
+  if(chk) chk.checked=_selectedContacts.has(sid);
+  // Update bulk bar
+  const bar=document.getElementById('bulk-bar');
+  const cnt=document.getElementById('bulk-count');
+  if(bar){ if(_selectedContacts.size>0){bar.classList.add('show');if(cnt)cnt.textContent=_selectedContacts.size+' selected';}else bar.classList.remove('show'); }
+}
+function clearSelection(){
+  _selectedContacts.clear();
+  document.querySelectorAll('.lead-row.selected').forEach(function(r){r.classList.remove('selected');});
+  document.querySelectorAll('.sel-chk').forEach(function(c){c.checked=false;});
+  const bar=document.getElementById('bulk-bar');
+  if(bar) bar.classList.remove('show');
+}
+function bulkRemoveContacts(){
+  if(!_selectedContacts.size) return;
+  const names=[];
+  _selectedContacts.forEach(function(id){
+    const c=contacts.find(function(x){return String(x.id)===id;});
+    if(c) names.push(c.company||c.name);
+  });
+  if(!confirm('Remove '+_selectedContacts.size+' contact(s) from tracker and Google Sheet?\n\n'+names.slice(0,5).join('\n')+(names.length>5?'\n...and '+(names.length-5)+' more':''))) return;
+  // Track removed IDs in localStorage so they don't come back on refresh
+  const removed=JSON.parse(localStorage.getItem('bev-removed-'+curClient)||'[]');
+  _selectedContacts.forEach(function(id){
+    contacts=contacts.filter(function(x){return String(x.id)!==id;});
+    delete actionLog[id];
+    if(!removed.includes(String(id))) removed.push(String(id));
+    // Remove from sheet via GAS
+    if(APPS_SCRIPT_URL && APPS_SCRIPT_URL!=='YOUR_APPS_SCRIPT_URL_HERE'){
+      fetch(APPS_SCRIPT_URL,{
+        method:'POST',
+        headers:{'Content-Type':'text/plain'},
+        body:JSON.stringify({action:'remove',client:curClient,id:parseInt(id)}),
+        redirect:'follow'
+      }).then(r=>r.json())
+        .then(d=>console.log('bulk removed id='+id+':',JSON.stringify(d)))
+        .catch(e=>console.error('bulk remove err:',e.message));
+    }
+  });
+  localStorage.setItem('bev-removed-'+curClient, JSON.stringify(removed));
+  saveLocal();
+  _selectedContacts.clear();
+  updateCounts();
+  renderLeads();
+}
+function deselectAll(){
+  document.querySelectorAll('.contact-chk:checked').forEach(cb=>cb.checked=false);
+  updateBulkBar();
+}
+function updateBulkBar(){
+  const checked=document.querySelectorAll('.contact-chk:checked');
+  const bar=document.getElementById('bulk-bar');
+  const cnt=document.getElementById('bulk-count');
+  if(bar){ bar.style.display=checked.length>0?'flex':'none'; }
+  if(cnt){ cnt.textContent=checked.length+' selected'; }
+}
+// Wire up checkbox changes via event delegation on the leads list
+function wireCheckboxes(){
+  const list=document.getElementById('leads-list')||document.getElementById('view-leads');
+  if(!list||list._bulkWired) return;
+  list._bulkWired=true;
+  list.addEventListener('change',function(e){
+    if(e.target.classList.contains('contact-chk')) updateBulkBar();
+  });
+}
+
 function renderCatBtns(){
   var bar=document.getElementById('cat-bar');
   if(!bar)return;
@@ -1557,6 +1638,7 @@ function renderCatBtns(){
 }
 function renderLeads(){
   renderCatBtns();
+  wireCheckboxes();
   const data=getFiltered();
   const list=document.getElementById('lead-list');
   if(!data.length){
@@ -1569,8 +1651,10 @@ function renderLeads(){
     const displaySub=r.company?r.name:'';
     const catColors={'SFO':'#4a7fc1','MFO':'#7c4fc1','WM':'#2a9d8f','ENDOWMENT':'#e76f51','SOVEREIGN':'#264653','PENSION':'#2c7873','RIA':'#6b4226','':'#aaa'};
     const catLabel=r.cat||(r.cat===''?'':'');
-    return`<div class="lead-row${r.stale&&!isExp?' stale':''}${isExp?' exp':''}" id="row-${r.id}">
-      <div class="lm" onclick="toggleExp('${r.id}')">
+    const isSelected = _selectedContacts.has(String(r.id));
+    return`<div class="lead-row${r.stale&&!isExp?' stale':''}${isExp?' exp':''}${isSelected?' selected':''}" id="row-${r.id}">
+      <input type="checkbox" class="sel-chk" ${isSelected?'checked':''} onclick="event.stopPropagation();toggleSelectContact('${r.id}')" style="margin-right:6px;cursor:pointer;flex-shrink:0;align-self:center"/>
+      <div class="lm" onclick="toggleExp('${r.id}')" style="flex:1">
         <div class="lm-main">
           <div style="display:flex;align-items:center;gap:6px">
             <div class="lm-company">${displayName}</div>
@@ -1724,35 +1808,46 @@ function buildExpand(r){
   </div>`;
 }
 
+function gasRemove(contactId){
+  // Remove from sheet via GAS — no confirm dialog, just fire and forget
+  if(!APPS_SCRIPT_URL||APPS_SCRIPT_URL==='YOUR_APPS_SCRIPT_URL_HERE') return;
+  fetch(APPS_SCRIPT_URL,{
+    method:'POST',
+    headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({action:'remove',client:curClient,id:contactId}),
+    redirect:'follow'
+  }).then(function(r){return r.json();})
+   .then(function(d){console.log('removed id='+contactId+' result:',JSON.stringify(d));})
+   .catch(function(e){console.error('remove err:',e.message);});
+}
+
 function removeContact(id){
   const r=contacts.find(x=>x.id==id);
-  if(!r)return;
+  if(!r) return;
   const name=r.company||r.name;
-  if(!confirm('Remove "'+name+'" from the tracker?\n\nThis will permanently delete this row from the Google Sheet and CRM.'))return;
-  contacts=contacts.filter(x=>x.id!==id);
+  if(!confirm('Remove "'+name+'" from tracker and Google Sheet?')) return;
+  doRemoveContact(id);
+}
+
+function doRemoveContact(id){
+  contacts=contacts.filter(x=>x.id!=id);
   delete actionLog[id];
-  expandedId=null;
-  // Store removed IDs so refresh doesn't re-add them
+  if(expandedId==id) expandedId=null;
   const removed=JSON.parse(localStorage.getItem('bev-removed-'+curClient)||'[]');
-  removed.push(String(id)); // store as string for consistent comparison
-  localStorage.setItem('bev-removed-'+curClient,JSON.stringify(removed));
+  if(!removed.includes(String(id))){ removed.push(String(id)); localStorage.setItem('bev-removed-'+curClient,JSON.stringify(removed)); }
   saveLocal();
   updateCounts();
   renderLeads();
-  // Send proper remove action to archive the row in the sheet
-  if(APPS_SCRIPT_URL && APPS_SCRIPT_URL!=='YOUR_APPS_SCRIPT_URL_HERE'){
-    const _gasUrl = typeof APPS_SCRIPT_URL !== 'undefined' ? APPS_SCRIPT_URL : '';
-    if(_gasUrl && _gasUrl !== 'YOUR_APPS_SCRIPT_URL_HERE'){
-      fetch(_gasUrl, {
-        method:'POST',
-        headers:{'Content-Type':'text/plain'},
-        body:JSON.stringify({action:'remove', client:curClient, id:id}),
-        redirect:'follow'
-      }).then(function(r){return r.json();})
-        .then(function(d){console.log('remove result:',d);})
-        .catch(function(e){console.error('remove error:', e.message);});
-    }
-  }
+  gasRemove(id);
+}
+
+function removeSelectedContacts(){
+  const checked=[...document.querySelectorAll('.contact-chk:checked')];
+  if(!checked.length){alert('Select at least one contact first.');return;}
+  const ids=checked.map(cb=>cb.dataset.id);
+  const names=ids.map(id=>{const r=contacts.find(x=>x.id==id);return r?r.company||r.name:id;});
+  if(!confirm('Remove '+ids.length+' contact(s)?\n\n'+names.slice(0,5).join('\n')+(names.length>5?'\n...and '+(names.length-5)+' more':'')+'\n\nThis will delete them from the Google Sheet.')) return;
+  ids.forEach(function(id){doRemoveContact(id);});
 }
 
 // ── SMART REFRESH — detects new activity from Gmail via Apps Script ──
@@ -2528,7 +2623,10 @@ function editForecast(){
 
   let rows = years.map((y,i) =>
     '<tr style="border-bottom:1px solid #eee">'
-    +'<td style="padding:6px 8px;font-weight:600;font-size:13px">'+y.year+'</td>'
+    +'<td style="padding:6px 8px;font-weight:600;font-size:13px">'
+    +'<input type="number" id="fc-yr-'+i+'" value="'+y.year+'" style="width:70px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:13px;font-weight:600"/>'
+    +'<button onclick="removeForecastRow(this)" style="margin-left:6px;background:none;border:none;color:#ccc;cursor:pointer;font-size:12px">✕</button>'
+    +'</td>'
     +'<td style="padding:4px"><input type="number" id="fc-ret-'+i+'" value="'+(y.retainer||0)+'" style="width:90px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:12px"/></td>'
     +'<td style="padding:4px"><input type="number" id="fc-suc-'+i+'" value="'+(y.success||0)+'" style="width:90px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:12px"/></td>'
     +'<td style="padding:4px"><input type="number" id="fc-rtt-'+i+'" value="'+(y.retainerTarget||0)+'" style="width:90px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:12px"/></td>'
@@ -2552,9 +2650,12 @@ function editForecast(){
     +'<th style="padding:6px 8px;color:#666;font-size:10px;text-transform:uppercase">Retainer Target (€/yr)</th>'
     +'<th style="padding:6px 8px;color:#666;font-size:10px;text-transform:uppercase">Success Target (€)</th>'
     +'</tr></thead><tbody>'+rows+'</tbody></table>'
-    +'<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px">'
+    +'<button onclick="addForecastYear()" style="padding:8px 16px;border:1px dashed var(--gold2);border-radius:6px;background:#fff;color:var(--gold2);cursor:pointer;font-size:13px;font-weight:600">＋ Add Year</button>'
+    +'<div style="display:flex;gap:10px">'
     +'<button onclick="closeForecastModal()" style="padding:8px 20px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer;font-size:13px">Cancel</button>'
-    +'<button onclick="saveForecastFromModal('+years.length+')" style="padding:8px 20px;border:none;border-radius:6px;background:var(--gold2);color:#fff;cursor:pointer;font-size:13px;font-weight:600">Save</button>'
+    +'<button onclick="saveForecastFromModal()" style="padding:8px 20px;border:none;border-radius:6px;background:var(--gold2);color:#fff;cursor:pointer;font-size:13px;font-weight:600">Save</button>'
+    +'</div>'
     +'</div>'
     +'</div>';
   document.body.appendChild(modal);
@@ -2565,21 +2666,49 @@ function closeForecastModal(){
   if(m) m.remove();
 }
 
-function saveForecastFromModal(count){
+function removeForecastRow(btn){
+  const tr = btn.closest ? btn.closest('tr') : btn.parentElement.parentElement;
+  if(tr) tr.remove();
+}
+function addForecastYear(){
+  const tbody = document.querySelector('#fc-modal tbody');
+  if(!tbody) return;
+  const count = tbody.rows.length;
+  // Get last year value
+  const lastYearInput = document.getElementById('fc-yr-'+(count-1));
+  const lastYear = lastYearInput ? parseInt(lastYearInput.value)||2027 : 2027;
+  const newYear = lastYear + 1;
+  const i = count;
+  const tr = document.createElement('tr');
+  tr.style.cssText = 'border-bottom:1px solid #eee';
+  tr.innerHTML = '<td style="padding:6px 8px;font-weight:600;font-size:13px">'
+    +'<input type="number" id="fc-yr-'+i+'" value="'+newYear+'" style="width:70px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:13px;font-weight:600"/>'
+    +'<button onclick="removeForecastRow(this)" style="margin-left:6px;background:none;border:none;color:#ccc;cursor:pointer;font-size:12px">✕</button>'
+    +'</td>'
+    +'<td style="padding:4px"><input type="number" id="fc-ret-'+i+'" value="0" style="width:90px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:12px"/></td>'
+    +'<td style="padding:4px"><input type="number" id="fc-suc-'+i+'" value="0" style="width:90px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:12px"/></td>'
+    +'<td style="padding:4px"><input type="number" id="fc-rtt-'+i+'" value="0" style="width:90px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:12px"/></td>'
+    +'<td style="padding:4px"><input type="number" id="fc-sut-'+i+'" value="0" style="width:90px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:12px"/></td>';
+  tbody.appendChild(tr);
+}
+
+function saveForecastFromModal(){
   const f = loadForecast();
   const years = [];
-  const baseYears = f.years && f.years.length ? f.years : [
-    {year:2023},{year:2024},{year:2025},{year:2026},{year:2027}
-  ];
-  for(let i=0; i<count; i++){
+  const tbody = document.querySelector('#fc-modal tbody');
+  if(!tbody) return;
+  Array.from(tbody.rows).forEach(function(row, i){
+    const yearInput = row.querySelector('[id^="fc-yr-"]');
+    const yr = yearInput ? parseInt(yearInput.value)||0 : 0;
+    const baseYears = f.years||[];
     years.push({
-      year: baseYears[i] ? baseYears[i].year : (2023+i),
+      year: yr || (baseYears[i] ? baseYears[i].year : 2023+i),
       retainer: parseFloat(document.getElementById('fc-ret-'+i)?.value||0)||0,
       success:  parseFloat(document.getElementById('fc-suc-'+i)?.value||0)||0,
       retainerTarget: parseFloat(document.getElementById('fc-rtt-'+i)?.value||0)||0,
       successTarget:  parseFloat(document.getElementById('fc-sut-'+i)?.value||0)||0,
     });
-  }
+  });
   saveForecast({...f, years});
   document.getElementById('fc-modal').remove();
   renderDashboard();
@@ -2877,7 +3006,10 @@ function renderTasksView(){
     const clientIdx = allClients.indexOf(client);
     html += '<div style="display:grid;grid-template-columns:160px 1fr 1fr;border-bottom:2px solid #e8e0d0">'
       +'<div style="padding:10px 8px 10px 0;font-size:12px;font-weight:700;color:var(--ink);border-right:2px solid #d4cbb4;align-self:stretch;display:flex;flex-direction:column;justify-content:space-between">'
-        +'<span>'+client+'</span>'
+        +'<div style="display:flex;align-items:center;justify-content:space-between">'
+          +'<span>'+client+'</span>'
+          +'<button data-c="'+client+'" onclick="removeTaskClient(this.dataset.c)" title="Remove client row" style="background:none;border:none;color:#ccc;cursor:pointer;font-size:11px;padding:0 2px;line-height:1">✕</button>'
+        +'</div>'
         +'<div style="display:flex;gap:3px;margin-top:6px">'
           +(clientIdx>0?'<button data-c="'+client+'" data-d="-1" onclick="moveClientPriority(this.dataset.c,parseInt(this.dataset.d));renderTasksView()" style="background:none;border:1px solid #d4cbb4;border-radius:3px;color:#aaa;cursor:pointer;font-size:9px;padding:1px 5px">▲</button>':'')
           +(clientIdx<allClients.length-1?'<button data-c="'+client+'" data-d="1" onclick="moveClientPriority(this.dataset.c,parseInt(this.dataset.d));renderTasksView()" style="background:none;border:1px solid #d4cbb4;border-radius:3px;color:#aaa;cursor:pointer;font-size:9px;padding:1px 5px">▼</button>':'')
@@ -2901,9 +3033,32 @@ function renderTasksView(){
     +'</div>';
   }
 
+  // Add client button at bottom
+  html += '<div style="padding:10px 12px;border-top:1px solid #e8e0d0;background:#fafafa">'
+    +'<button onclick="addTaskClient()" style="font-size:11px;color:var(--gold2);background:none;border:1px dashed #d4cbb4;border-radius:4px;padding:4px 12px;cursor:pointer">＋ Add client row</button>'
+    +'</div>';
   html += '</div>';
   el.innerHTML = html;
 }
+
+function addTaskClient(){
+  const name = prompt('Client name for task row:');
+  if(!name || !name.trim()) return;
+  const order = loadClientOrder() || [];
+  if(!order.includes(name.trim())) order.push(name.trim());
+  saveClientOrder(order);
+  renderTasksView();
+}
+
+function removeTaskClient(client){
+  if(!confirm('Remove "'+client+'" row from tasks? (Tasks will not be deleted, just hidden)')) return;
+  const order = loadClientOrder() || [];
+  const newOrder = order.filter(function(c){ return c !== client; });
+  saveClientOrder(newOrder);
+  renderTasksView();
+}
+
+
 
 function renderDashboard(){
   const el = document.getElementById('dash-content');
