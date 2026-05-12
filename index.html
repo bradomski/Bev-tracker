@@ -996,6 +996,27 @@ function doLogin(){
   document.getElementById('sb-av').textContent=curUser[0];
   document.getElementById('sb-nm').textContent=curUser;
   document.getElementById('tb-badge').textContent=role==='admin'?'Admin':'Client';
+  // Clear any cross-contaminated caches (same data saved under wrong client key)
+  (function cleanCaches(){
+    const clientIds = Object.keys(CLIENTS);
+    const seen = {};
+    clientIds.forEach(function(id){
+      const raw = localStorage.getItem('bev-cache-'+id);
+      if(!raw) return;
+      try{
+        const data = JSON.parse(raw);
+        const key = (data.rows&&data.rows[0]) ? JSON.stringify(data.rows[0]).slice(0,50) : '';
+        if(key && seen[key] && seen[key]!==id){
+          // This cache has the same first row as another client — contaminated, clear it
+          console.log('Clearing contaminated cache for',id,'(matches',seen[key]+')');
+          localStorage.removeItem('bev-cache-'+id);
+          localStorage.removeItem('bev-cache-time-'+id);
+        } else if(key){
+          seen[key] = id;
+        }
+      }catch(e){}
+    });
+  })();
   buildNav(); loadData();
   document.getElementById('ref-btn').style.display=(role==='admin'?'':'none');
   document.getElementById('dl-btn').style.display=(role==='admin'?'':'none');
@@ -1883,10 +1904,13 @@ function getCachedRows(){
     return raw ? JSON.parse(raw) : null;
   }catch(e){ return null; }
 }
-function setCachedRows(rows, activity){
+function setCachedRows(rows, activity, clientId){
   try{
-    localStorage.setItem(cacheKey(), JSON.stringify({rows, activity}));
-    localStorage.setItem(cacheTimeKey(), String(Date.now()));
+    // Use explicit clientId if provided (prevents async race condition)
+    const key = clientId ? 'bev-cache-'+clientId : cacheKey();
+    const tkey = clientId ? 'bev-cache-time-'+clientId : cacheTimeKey();
+    localStorage.setItem(key, JSON.stringify({rows, activity}));
+    localStorage.setItem(tkey, String(Date.now()));
   }catch(e){}
 }function lastScanWasToday(){
   try{
@@ -1957,6 +1981,7 @@ function clearPendingContacts(client) {
 
 async function loadData(forceRefresh){
   setSS('syncing','Loading…');
+  const _loadClient = curClient; // capture at call time — avoid async race
   try{
     if(APPS_SCRIPT_URL&&APPS_SCRIPT_URL!=='YOUR_APPS_SCRIPT_URL_HERE'){
       const cached = !forceRefresh && getCachedRows();
@@ -2034,7 +2059,7 @@ async function loadFromSheet(){
   // Clear stale action logs when loading fresh contacts for this client
   Object.keys(actionLog).forEach(k=>delete actionLog[k]);
   // Cache the fresh data
-  setCachedRows(d.rows, d.newActivity||[]);
+  setCachedRows(d.rows, d.newActivity||[], _loadClient);
   Object.keys(actionLog).forEach(k=>delete actionLog[k]);
   contacts=d.rows.map(parseRow);
   if(d.newActivity&&d.newActivity.length){
