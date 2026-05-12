@@ -2148,7 +2148,7 @@ async function genBriefing(){
   if(!key){el.innerHTML='<span style="color:rgba(255,255,255,0.3)">Add your Claude API key to enable AI briefings.</span>';return;}
   el.innerHTML='<span style="color:rgba(255,255,255,0.3)">Generating…</span>';
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:700,system:'You are Sarah, investor intelligence at BEV Capital. Write a sharp weekly briefing for the client update call. Structure: 1) What moved this week, 2) Urgent actions needed, 3) Who has gone quiet/stale, 4) Top 3 recommendations. Bold for names. Concise and actionable.',messages:[{role:'user',content:'Live pipeline:\n'+buildCtx()+'\n\nWrite the weekly briefing.'}]})});
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'text/plain','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:700,system:'You are Sarah, investor intelligence at BEV Capital. Write a sharp weekly briefing for the client update call. Structure: 1) What moved this week, 2) Urgent actions needed, 3) Who has gone quiet/stale, 4) Top 3 recommendations. Bold for names. Concise and actionable.',messages:[{role:'user',content:'Live pipeline:\n'+buildCtx()+'\n\nWrite the weekly briefing.'}]})});
     const d=await res.json();
     el.innerHTML=(d.content?.[0]?.text||'').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n\n/g,'<br><br>').replace(/\n/g,'<br>');
   }catch(e){el.innerHTML='<span style="color:rgba(255,255,255,0.3)">Error: '+e.message+'</span>';}
@@ -2188,7 +2188,7 @@ async function sendChat(){
   addTy();
   try{
     const sys=`You are Sarah, investor intelligence for BEV Capital. Reading the live pipeline for ${CLIENTS[curClient]?.name||curClient}. Concise, sharp, actionable. Bold for names. Max 180 words.\n\nLIVE PIPELINE:\n${buildCtx()}`;
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:400,system:sys,messages:[{role:'user',content:txt}]})});
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'text/plain','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:400,system:sys,messages:[{role:'user',content:txt}]})});
     const d=await res.json();
     if(d.error)throw new Error(d.error.message);
     document.getElementById('ty')?.remove();
@@ -2417,7 +2417,7 @@ function saveBDToSheet(b, fields){
   if(!b||!b.id) return;
   fetch(APPS_SCRIPT_URL, {
     method:'POST', redirect:'follow',
-    headers:{'Content-Type':'application/json'},
+    headers:{'Content-Type':'text/plain'},
     body:JSON.stringify({client:'bizdev',action:'update',id:b.id,fields:fields})
   }).catch(function(e){ console.warn('Sheet write failed:',e.message); });
 }
@@ -3757,7 +3757,7 @@ async function enrichContact(contact){
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
+      headers: {'Content-Type':'text/plain'},
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 200,
