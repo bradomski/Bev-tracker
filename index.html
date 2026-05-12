@@ -693,9 +693,9 @@ window.addEventListener('load', function(){
     setTimeout(buildPwList, 300); return;
   }
   el.innerHTML = '';
-  Object.keys(CLIENTS).forEach(function(cid){
-    const pw = (AUTH.client && AUTH.client[cid]) ? AUTH.client[cid] : '';
-    const name = (CLIENTS[cid] && CLIENTS[cid].name) ? CLIENTS[cid].name : cid;
+
+  // Helper to build a password row
+  function makePwRow(id, name, currentPw, saveFunc){
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:8px';
     const label = document.createElement('div');
@@ -703,16 +703,43 @@ window.addEventListener('load', function(){
     label.textContent = name;
     const inp = document.createElement('input');
     inp.className = 'set-inp';
-    inp.id = 'pw-' + cid;
-    inp.value = pw;
+    inp.id = 'pw-' + id;
+    inp.value = currentPw || '';
     inp.placeholder = 'Set password';
     inp.style.cssText = 'width:160px;font-family:monospace;letter-spacing:1px';
+    inp.type = 'text';
     const btn = document.createElement('button');
     btn.className = 'set-btn';
     btn.textContent = 'Save';
-    btn.onclick = (function(id){ return function(){ saveClientPw(id); }; })(cid);
+    btn.onclick = saveFunc;
     row.appendChild(label); row.appendChild(inp); row.appendChild(btn);
     el.appendChild(row);
+  }
+
+  // Admin passwords section
+  const adminHdr = document.createElement('div');
+  adminHdr.style.cssText = 'font-size:11px;font-weight:700;color:var(--ink3);letter-spacing:.08em;text-transform:uppercase;margin:8px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border)';
+  adminHdr.textContent = 'Admin Logins';
+  el.appendChild(adminHdr);
+  Object.keys(AUTH.admin || {}).forEach(function(uid){
+    makePwRow('admin-'+uid, uid.charAt(0).toUpperCase()+uid.slice(1)+' (admin)', AUTH.admin[uid], function(){
+      const val = document.getElementById('pw-admin-'+uid)?.value.trim();
+      if(!val){ alert('Enter a password'); return; }
+      AUTH.admin[uid] = val; DEFAULT_AUTH.admin[uid] = val;
+      try{ const s=JSON.parse(localStorage.getItem('bev-pw-overrides')||'{}'); s['admin-'+uid]=val; localStorage.setItem('bev-pw-overrides',JSON.stringify(s)); }catch(e){}
+      flash('Admin password saved for '+uid);
+    });
+  });
+
+  // Client passwords section
+  const clientHdr = document.createElement('div');
+  clientHdr.style.cssText = 'font-size:11px;font-weight:700;color:var(--ink3);letter-spacing:.08em;text-transform:uppercase;margin:14px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border)';
+  clientHdr.textContent = 'Client Logins';
+  el.appendChild(clientHdr);
+  Object.keys(CLIENTS).forEach(function(cid){
+    const pw = (AUTH.client && AUTH.client[cid]) ? AUTH.client[cid] : '';
+    const name = (CLIENTS[cid] && CLIENTS[cid].name) ? CLIENTS[cid].name : cid;
+    makePwRow(cid, name, pw, (function(id){ return function(){ saveClientPw(id); }; })(cid));
   });
 }
 
@@ -911,7 +938,13 @@ let AUTH = {admin:_cfg.auth.admin, client:_cfg.auth.client};
 // Apply any saved password overrides
 try{
   const _pwOvr=JSON.parse(localStorage.getItem('bev-pw-overrides')||'{}');
-  Object.keys(_pwOvr).forEach(function(k){ AUTH.client[k]=_pwOvr[k]; DEFAULT_AUTH.client[k]=_pwOvr[k]; });
+  Object.keys(_pwOvr).forEach(function(k){
+    if(k==='_admin'){
+      Object.keys(_pwOvr._admin).forEach(function(u){ AUTH.admin[u]=_pwOvr._admin[u]; DEFAULT_AUTH.admin[u]=_pwOvr._admin[u]; });
+    } else {
+      AUTH.client[k]=_pwOvr[k]; DEFAULT_AUTH.client[k]=_pwOvr[k];
+    }
+  });
 }catch(e){}
 const STATUS_ORDER = {'1 Hot':0,'2 Warm':1,'3 Pre Check':2,'5 OOO':3,'4 No':4};
 const SM = {'1 Hot':'s-hot','2 Warm':'s-warm','3 Pre Check':'s-pre','4 No':'s-no','5 OOO':'s-ooo'};
@@ -1695,7 +1728,7 @@ function removeContact(id){
   const r=contacts.find(x=>x.id==id);
   if(!r)return;
   const name=r.company||r.name;
-  if(!confirm('Remove "'+name+'" from the tracker?\n\nThis only removes them from this view — it does not affect Gmail labels or the Google Sheet.\n\nIf connected to the sheet, the row will be archived on next sync.'))return;
+  if(!confirm('Remove "'+name+'" from the tracker?\n\nThis will permanently delete this row from the Google Sheet and CRM.'))return;
   contacts=contacts.filter(x=>x.id!==id);
   delete actionLog[id];
   expandedId=null;
@@ -1708,11 +1741,17 @@ function removeContact(id){
   renderLeads();
   // Send proper remove action to archive the row in the sheet
   if(APPS_SCRIPT_URL && APPS_SCRIPT_URL!=='YOUR_APPS_SCRIPT_URL_HERE'){
-    fetch(APPS_SCRIPT_URL, {
-      method:'POST',
-      body:JSON.stringify({action:'remove', client:curClient, id:id}),
-      redirect:'follow'
-    }).catch(function(e){ console.error('remove error:', e.message); });
+    const _gasUrl = typeof APPS_SCRIPT_URL !== 'undefined' ? APPS_SCRIPT_URL : '';
+    if(_gasUrl && _gasUrl !== 'YOUR_APPS_SCRIPT_URL_HERE'){
+      fetch(_gasUrl, {
+        method:'POST',
+        headers:{'Content-Type':'text/plain'},
+        body:JSON.stringify({action:'remove', client:curClient, id:id}),
+        redirect:'follow'
+      }).then(function(r){return r.json();})
+        .then(function(d){console.log('remove result:',d);})
+        .catch(function(e){console.error('remove error:', e.message);});
+    }
   }
 }
 
@@ -2237,14 +2276,37 @@ function renderAdminList(){
   if(!entries.length){al.innerHTML='<div style="font-size:11px;color:var(--ink3)">No admins</div>';return;}
   entries.forEach(function([u,pw]){
     const row=document.createElement('div');
-    row.className='client-item';
-    row.innerHTML='<span class="client-item-name">'+u+'</span>'
-      +'<span class="client-item-pw">pw: '+pw+'</span>';
-    const btn=document.createElement('button');
-    btn.className='set-btn-del';
-    btn.textContent='Remove';
-    btn.onclick=function(){removeAdmin(u);};
-    row.appendChild(btn);
+    row.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:8px';
+    const label=document.createElement('div');
+    label.style.cssText='width:100px;font-size:12px;font-weight:600;color:var(--ink);flex-shrink:0;text-transform:capitalize';
+    label.textContent=u;
+    const inp=document.createElement('input');
+    inp.className='set-inp';
+    inp.id='admin-pw-'+u;
+    inp.value=pw;
+    inp.placeholder='Password';
+    inp.style.cssText='width:140px;font-family:monospace;letter-spacing:1px';
+    const saveBtn=document.createElement('button');
+    saveBtn.className='set-btn';
+    saveBtn.textContent='Save';
+    saveBtn.onclick=(function(user,input){return function(){
+      const newPw=input.value.trim();
+      if(!newPw){alert('Enter a password');return;}
+      AUTH.admin[user]=newPw;
+      DEFAULT_AUTH.admin[user]=newPw;
+      try{
+        const pwStore=JSON.parse(localStorage.getItem('bev-pw-overrides')||'{}');
+        if(!pwStore._admin)pwStore._admin={};
+        pwStore._admin[user]=newPw;
+        localStorage.setItem('bev-pw-overrides',JSON.stringify(pwStore));
+      }catch(e){}
+      flash('Password saved for '+user);
+    };})(u,inp);
+    const delBtn=document.createElement('button');
+    delBtn.className='set-btn-del';
+    delBtn.textContent='Remove';
+    delBtn.onclick=function(){removeAdmin(u);};
+    row.appendChild(label);row.appendChild(inp);row.appendChild(saveBtn);row.appendChild(delBtn);
     al.appendChild(row);
   });
 }
@@ -2682,7 +2744,18 @@ async function loadTasksFromSheet(){
   // Fallback to cache
   try{ return JSON.parse(localStorage.getItem(TASKS_KEY)||'[]'); }catch(e){ return []; }
 }
-function loadTasks(){ try{ return JSON.parse(localStorage.getItem(TASKS_KEY)||'[]'); }catch(e){ return []; } }
+function loadTasks(){
+  try{
+    var raw = JSON.parse(localStorage.getItem(TASKS_KEY)||'[]');
+    // Sanitize any raw Date strings in task text
+    return raw.map(function(t){
+      if(t.text && (t.text.includes('GMT') || /\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+(Jan|Feb)/.test(t.text))){
+        t.text = t.text.replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s+\d{4}[^\n]*/g,'').trim();
+      }
+      return t;
+    });
+  }catch(e){ return []; }
+}
 function saveTasks(d){
   // Clean created dates before saving (avoid raw Date.toString() strings)
   d = (d||[]).map(function(t){
@@ -2744,12 +2817,24 @@ async function initTasks(){
 
 
 
+function fmtTaskDate(d){
+  if(!d) return '';
+  const p = new Date(d);
+  if(isNaN(p.getTime())) return '';
+  return p.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+}
 function displayTaskText(t){
   if(!t||!t.text) return '';
   const client = t.client||'';
   let txt = t.text;
+  // Strip any raw Date.toString() appended to task text (e.g. "task Tue May 12 2026...")
+  txt = txt.replace(/\s+(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s+\d{4}[^$]*/,'').trim();
   if(client && txt.endsWith(' — '+client)) txt = txt.slice(0,-(client.length+3));
   if(client && txt.endsWith(' - '+client))  txt = txt.slice(0,-(client.length+3));
+  if(t.due){
+    const dateStr = fmtTaskDate(t.due);
+    if(dateStr) txt += ' <span style="font-size:10px;color:var(--ink3);margin-left:4px">📅 '+dateStr+'</span>';
+  }
   return txt;
 }
 
@@ -2770,7 +2855,7 @@ function renderTasksView(){
     +'<input type="checkbox"'+(t.done?' checked':'')+' data-tid="'+t.id+'" onchange="toggleTask(this.dataset.tid)" style="margin-top:2px;cursor:pointer;flex-shrink:0"/>'
     +'<div style="flex:1;font-size:12px;color:var(--ink);'+(t.done?'text-decoration:line-through;color:var(--ink4)':'')+'">'+(displayTaskText(t)||'')+'</div>'
     +'<div style="display:flex;flex-direction:column;gap:0;flex-shrink:0">'
-    +(idx>0?'<button data-c="'+t.id+'" data-d="-1" onclick="moveTask(this.dataset.c,parseInt(this.dataset.d));event.stopPropagation()" style="background:none;border:none;color:var(--ink4);cursor:pointer;font-size:9px;padding:0;line-height:1.2">▲</button>':'<span style="font-size:9px;line-height:1.2;opacity:0">▲</span>')
+    +'<button data-tid="'+t.id+'" onclick="deleteTask(this.dataset.tid);event.stopPropagation()" style="background:none;border:none;color:#ccc;cursor:pointer;font-size:14px;padding:0 2px;flex-shrink:0" title="Remove task">✕</button>'    +(idx>0?'<button data-c="'+t.id+'" data-d="-1" onclick="moveTask(this.dataset.c,parseInt(this.dataset.d));event.stopPropagation()" style="background:none;border:none;color:var(--ink4);cursor:pointer;font-size:9px;padding:0;line-height:1.2">▲</button>':'<span style="font-size:9px;line-height:1.2;opacity:0">▲</span>')
     +(arr&&idx<arr.length-1?'<button data-c="'+t.id+'" data-d="1" onclick="moveTask(this.dataset.c,parseInt(this.dataset.d));event.stopPropagation()" style="background:none;border:none;color:var(--ink4);cursor:pointer;font-size:9px;padding:0;line-height:1.2">▼</button>':'<span style="font-size:9px;line-height:1.2;opacity:0">▼</span>')
     +'</div>'
     +'<button data-tid="'+t.id+'" onclick="deleteTask(this.dataset.tid)" style="background:none;border:none;color:var(--ink4);cursor:pointer;font-size:11px;padding:0 2px;flex-shrink:0">✕</button>'
