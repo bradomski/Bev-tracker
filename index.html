@@ -2237,17 +2237,14 @@ async function _flushWrite(id, client){
   if(!pending) return;
   delete _writeQueue[id];
   setSS('saving', 'Saving…');
-  try{
-    await fetch(APPS_SCRIPT_URL, {
-      method:'POST',
-      body: JSON.stringify({action:'update', client, id, fields:pending.fields}),
-      redirect:'follow'
-    });
-    setSS('ok', 'Saved · ' + new Date().toLocaleTimeString().slice(0,5));
-  } catch(e){
-    setSS('err', 'Save failed — changes kept locally');
-    console.error('pushUpdate error:', e.message);
-  }
+  fetch(APPS_SCRIPT_URL, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain'},
+    body: JSON.stringify({action:'update', client:client, id:id, fields:pending.fields}),
+    redirect:'follow'
+  }).then(function(r){ return r.json(); })
+    .then(function(d){ setSS('ok', 'Saved · ' + new Date().toLocaleTimeString().slice(0,5)); console.log('pushUpdate ok:', JSON.stringify(d)); })
+    .catch(function(e){ setSS('err', 'Save failed'); console.error('pushUpdate error:', e.message); });
 }
 // Flush all pending writes immediately (e.g. before page unload)
 function flushAllWrites(){
