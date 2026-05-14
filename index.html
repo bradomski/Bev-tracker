@@ -2161,11 +2161,8 @@ function saveNote(id){
   }
   saveLocal();
   flash('sv-'+id);
-  // Write full action log to sheet so all team members see full history
-  const _fullLog = (actionLog[id]||[]).map(function(e){
-    return '['+e.date+'] '+(e.type||'').toUpperCase()+': '+e.txt;
-  }).join(' | ');
-  pushUpdate(id,{action:txt, lastLog:entry, fullLog:_fullLog});
+  // Save note to sheet — appends to top of log column
+  pushUpdate(id, {lastLog: entry});
 }
 
 function updateStatus(id,newStatus,btn){
