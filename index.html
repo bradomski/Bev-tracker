@@ -805,7 +805,7 @@ window.addEventListener('load', function(){
           <!-- CLAUDE API KEY -->
           <div class="set-sec">
             <div class="set-title">Claude API key</div>
-            <div class="set-sub">Required for Sarah chat and the weekly briefing.</div>
+            <div class="set-sub">Required for AI contact enrichment (company, description, location from emails), Sarah chat and weekly briefing. Get yours at <a href="https://console.anthropic.com" target="_blank" style="color:var(--gold)">console.anthropic.com</a></div>
             <div class="set-row">
               <input class="set-inp" type="password" id="set-claude-key" placeholder="sk-ant-api03-…"/>
               <button class="set-btn" onclick="saveClaudeKey()">Save</button>
@@ -1684,7 +1684,11 @@ function renderLeads(){
             <span onclick="event.stopPropagation();showCatPicker('${r.id}',this)" style="font-size:10px;padding:1px 6px;border-radius:10px;cursor:pointer;background:${catColors[r.cat]||'#ccc'};color:#fff;white-space:nowrap;font-weight:500;opacity:0.9">${r.cat||'+'}</span>
           </div>
           ${displaySub?`<div class="lm-name">${displaySub}</div>`:''}
-          ${r.email?`<div class="lm-email">${r.email}</div>`:''}
+          ${r.email?`<div class="lm-email" style="display:flex;align-items:center;gap:6px">
+            <span>${r.email}</span>
+            <span onclick="event.stopPropagation();navigator.clipboard.writeText('${r.email}').then(function(){const el=event.target;el.textContent='✓';el.style.color='var(--gold)';setTimeout(function(){el.textContent='⎘';el.style.color='';},1500);})" title="Copy email" style="cursor:pointer;font-size:11px;color:var(--ink3);padding:0 3px;border-radius:3px;user-select:none" onmouseenter="this.style.color='var(--gold)'" onmouseleave="this.style.color='var(--ink3)'">⎘</span>
+            <a href="mailto:${r.email}" onclick="event.stopPropagation()" title="Open in Mail" style="font-size:10px;color:var(--ink3);text-decoration:none;padding:0 3px" onmouseenter="this.style.color='var(--gold)'" onmouseleave="this.style.color='var(--ink3)'">✉</a>
+          </div>`:''}
           ${r.location?`<div class="lm-loc-inline">📍 ${r.location}</div>`:''}
           ${r.desc?`<div class="lm-desc">${safeLm(r.desc,140)}</div>`:''}
         </div>
@@ -2533,7 +2537,19 @@ function removeAdmin(u){
 
 function saveClaudeKey(){
   const k=(document.getElementById('set-claude-key')?.value||'').trim();
-  if(k)localStorage.setItem('bev-claude-key',k);
+  if(!k){alert('Please enter your Claude API key (starts with sk-ant-)');return;}
+  localStorage.setItem('bev-claude-key',k);
+  // Also push to GAS Script Properties so server-side enrichment can use it
+  if(APPS_SCRIPT_URL && APPS_SCRIPT_URL!=='YOUR_APPS_SCRIPT_URL_HERE'){
+    fetch(APPS_SCRIPT_URL,{
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'save_setting', key:'CLAUDE_API_KEY', value:k}),
+      redirect:'follow'
+    }).then(function(r){return r.json();})
+      .then(function(d){console.log('Claude key saved to GAS:',JSON.stringify(d));})
+      .catch(function(e){console.error('Could not save key to GAS:',e.message);});
+  }
   flash2('ok-claude');
 }
 
