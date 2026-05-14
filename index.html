@@ -1222,10 +1222,10 @@ function parseRow(r,i){
   const lm        = stripEmailChain(isObj ? (r.lm||'') : (r[6]||''));
   const ldRaw     = isObj ? r.ld              : r[7];
   const desc      = isObj ? (r.desc||'')      : (r[9]||'');
-  const action    = isObj ? (r.action||'')    : (r[10]||'');
-  const log       = isObj ? (r.log||'')       : (r[11]||'');
-  const ticketCur = isObj ? (r.ticketCur||'') : (r[13]||'');
-  const ticketAmt = isObj ? (r.ticketAmt||'') : (r[14]||'');
+  const log       = isObj ? (r.log||'')       : (r[10]||'');  // col 11 = index 10
+  const action    = isObj ? (r.action||'')    : (r[10]||'');  // same col, first line of log
+  const ticketCur = isObj ? (r.ticketCur||'') : (r[11]||''); // col 12 = index 11
+  const ticketAmt = isObj ? (r.ticketAmt||'') : (r[12]||''); // col 13 = index 12
   const rowId     = isObj ? (r.id!=null ? r.id : i+1) : (i+1);
   const ld        = parseDate(ldRaw);
   const today     = new Date(); today.setHours(12,0,0,0);
@@ -1237,7 +1237,7 @@ function parseRow(r,i){
     return m[s]||s||'3 Pre Check';
   })(status);
   // cat: stored in sheet col 14. If blank, infer from description.
-  const catRaw = isObj ? (r.cat||'') : (r[13]||'');
+  const catRaw = isObj ? (r.cat||'') : (r[13]||'');  // col 14 = index 13
   const cat = (function(raw,d){
     if(raw) return raw.toUpperCase().trim();
     const t=(d||'').toLowerCase();
@@ -2003,6 +2003,7 @@ async function loadData(forceRefresh){
         const ageStr = ageH < 1 ? 'just now' : ageH < 24 ? ageH+'h ago' : Math.round(ageH/24)+'d ago';
         Object.keys(actionLog).forEach(k=>delete actionLog[k]);
         contacts = cached.rows.map(parseRow);
+        loadLocal(); // restore notes from localStorage;
         if(cached.activity && cached.activity.length) mergeGmailActivity(cached.activity);
         setSS('ok','Cached · synced '+ageStr+' · ↻ to refresh');
       } else {
@@ -2073,6 +2074,43 @@ async function loadFromSheet(){
   setCachedRows(d.rows, d.newActivity||[], typeof _loadClient!=='undefined' ? _loadClient : curClient);
   Object.keys(actionLog).forEach(k=>delete actionLog[k]);
   contacts=d.rows.map(parseRow);
+  // Seed actionLog from sheet's log column so notes survive refresh
+  contacts.forEach(function(c){
+    if(c.log && c.log.trim()){
+      var existing = actionLog[c.id];
+      if(!existing || !existing.length){
+        // Parse sheet log lines back into actionLog entries
+        // Handle pipe-separated format: [11 May 26 8:35:] CALL-NOTE: text | [...]
+        var raw = c.log.trim();
+        var entries = raw.split(' | ').filter(Boolean);
+        var parsed = [];
+        entries.forEach(function(entry){
+          entry = entry.trim();
+          // New format: "14 May 2026 4:16 [call-note] text"
+          var m1 = entry.match(/^(.+?)\s+\[([\w-]+)\]\s+(.+)$/);
+          // Old format: "[11 May 26 8:35:] CALL-NOTE: text"
+          var m2 = entry.match(/^\[([^\]]+)\]\s+([A-Z-]+):\s+(.+)$/);
+          // Old multiline format: date — type — text
+          var m3 = entry.match(/^(.+?)\s+—\s+([\w-]+)\s+—\s+(.+)$/);
+          if(m1){
+            parsed.push({date:m1[1].trim(), type:m1[2].toLowerCase(), txt:m1[3].trim()});
+          } else if(m2){
+            var typeMap = {'CALL-NOTE':'call-note','CALL':'call-note','REPLY':'reply',
+              'EMAIL-SENT':'email-sent','NOTE':'note','INTRO':'intro','OUTREACH':'outreach'};
+            parsed.push({date:m2[1].trim(), type:typeMap[m2[2]]||'note', txt:m2[3].trim()});
+          } else if(m3){
+            parsed.push({date:m3[1].trim(), type:m3[2].toLowerCase(), txt:m3[3].trim()});
+          } else if(entry){
+            parsed.push({date:'', type:'note', txt:entry.slice(0,200)});
+          }
+        });
+        if(parsed.length) actionLog[c.id] = parsed;
+      }
+    }
+  });
+  // IMPORTANT: restore action logs from localStorage AFTER parsing rows
+  // localStorage takes priority over sheet (more recent edits)
+  loadLocal();
   if(d.newActivity&&d.newActivity.length){
     mergeGmailActivity(d.newActivity);
     console.log('Gmail sync:',d.newActivity.length,'items merged');
