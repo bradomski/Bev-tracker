@@ -140,6 +140,8 @@ html,body{height:100%;font-family:var(--sans);background:var(--paper);color:var(
 
 /* ── LEAD ROW ── */
 .lead-row{border-bottom:1px solid var(--border)}
+.lead-row:hover .sel-chk{opacity:1!important}
+.lead-row:hover .row-actions{display:flex!important}
 .lead-row.stale .lm{border-left:3px solid var(--stale-bd)}
 .lead-row.exp .lm{background:#1e2a38;border-left:3px solid #4a9eca}
 .lead-row.exp .lm .lm-company{color:#fff;font-size:14px;font-weight:600}
@@ -592,15 +594,16 @@ window.addEventListener('load', function(){
         <button id="tab-no"></button><button id="tab-all"></button>
         <button id="tab-ticket"></button>
       </div>
-      <div class="srch-bar">
+      <div class="srch-bar" style="display:flex;align-items:center;gap:8px">
         <span class="srch-lbl">Search</span>
-        <input class="srch" placeholder="Company, name, location…" id="srch-q" oninput="renderLeads()"/>
+        <input class="srch" placeholder="Company, name, location…" id="srch-q" oninput="renderLeads()" style="flex:1"/>
         <span class="srch-x" onclick="document.getElementById('srch-q').value='';renderLeads()">clear</span>
+        <button onclick="showAddContact()" style="font-size:11px;padding:4px 12px;border-radius:4px;cursor:pointer;background:var(--gold);color:#fff;border:none;font-weight:600;white-space:nowrap;flex-shrink:0">+ Add Contact</button>
       </div>
       <div class="cat-bar" id="cat-bar" style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 0 4px">
         <span class="cat-lbl" style="font-size:10px;font-weight:600;color:var(--ink3);align-self:center;letter-spacing:.05em">Category:</span>
       </div>
-      <div id="bulk-bar"><span id="bulk-count">0 selected</span><button onclick="bulkRemoveContacts()" style="background:#fff;color:var(--gold2);border:none;border-radius:4px;padding:3px 12px;cursor:pointer;font-weight:700;font-size:12px">🗑 Remove selected</button><button onclick="clearSelection()" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.5);border-radius:4px;padding:3px 10px;cursor:pointer;font-size:12px">Cancel</button></div>
+      <div id="bulk-bar" style="position:sticky;top:0;z-index:50;background:var(--gold2);color:#fff;padding:10px 16px;display:none;align-items:center;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,0.2);margin:0"><span id="bulk-count" style="font-weight:600;font-size:13px">0 selected</span><button onclick="bulkRemoveContacts()" style="background:#fff;color:var(--gold2);border:none;border-radius:4px;padding:4px 14px;cursor:pointer;font-weight:700;font-size:12px">🗑 Remove selected</button><button onclick="clearSelection()" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.6);border-radius:4px;padding:4px 10px;cursor:pointer;font-size:12px">✕ Cancel</button></div>
 
       <div class="tbl-hd">
         <div class="th" style="padding-left:0">Company / Description / Location</div>
@@ -1676,7 +1679,7 @@ function renderLeads(){
     const catLabel=r.cat||(r.cat===''?'':'');
     const isSelected = _selectedContacts.has(String(r.id));
     return`<div class="lead-row${r.stale&&!isExp?' stale':''}${isExp?' exp':''}${isSelected?' selected':''}" id="row-${r.id}">
-      <input type="checkbox" class="sel-chk" ${isSelected?'checked':''} onclick="event.stopPropagation();toggleSelectContact('${r.id}')" style="margin-right:6px;cursor:pointer;flex-shrink:0;align-self:center"/>
+      <input type="checkbox" class="sel-chk" ${isSelected?'checked':''} onclick="event.stopPropagation();toggleSelectContact('${r.id}')" style="margin-right:6px;cursor:pointer;flex-shrink:0;align-self:center;opacity:${isSelected?'1':'0'};transition:opacity 0.15s"/>
       <div class="lm" onclick="toggleExp('${r.id}')" style="flex:1">
         <div class="lm-main">
           <div style="display:flex;align-items:center;gap:6px">
@@ -1689,6 +1692,9 @@ function renderLeads(){
             <span onclick="event.stopPropagation();navigator.clipboard.writeText('${r.email}').then(function(){const el=event.target;el.textContent='✓';el.style.color='var(--gold)';setTimeout(function(){el.textContent='⎘';el.style.color='';},1500);})" title="Copy email" style="cursor:pointer;font-size:11px;color:var(--ink3);padding:0 3px;border-radius:3px;user-select:none" onmouseenter="this.style.color='var(--gold)'" onmouseleave="this.style.color='var(--ink3)'">⎘</span>
             <a href="mailto:${r.email}" onclick="event.stopPropagation()" title="Open in Mail" style="font-size:10px;color:var(--ink3);text-decoration:none;padding:0 3px" onmouseenter="this.style.color='var(--gold)'" onmouseleave="this.style.color='var(--ink3)'">✉</a>
           </div>`:''}
+          <div class="row-actions" style="display:none;margin-top:4px;gap:6px">
+            <button onclick="event.stopPropagation();removeContact('${r.id}')" style="font-size:10px;padding:2px 8px;border-radius:3px;cursor:pointer;background:transparent;border:1px solid #e88;color:#c44">🗑 Remove</button>
+          </div>
           ${r.location?`<div class="lm-loc-inline">📍 ${r.location}</div>`:''}
           ${r.desc?`<div class="lm-desc">${safeLm(r.desc,140)}</div>`:''}
         </div>
@@ -4634,6 +4640,154 @@ function deleteBDLog(id, idx){
 }
 
 
+
+function showAddContact(){
+  // Pre-populate cat dropdown with custom cats
+  const catSel = document.getElementById('ac-cat');
+  const customCats = getCats().filter(function(c){ return !['SFO','MFO','WM','ENDOWMENT','SOVEREIGN','PENSION','RIA'].includes(c); });
+  customCats.forEach(function(c){
+    if(!catSel.querySelector('option[value="'+c+'"]')){
+      const opt = document.createElement('option'); opt.value=c; opt.textContent=c; catSel.appendChild(opt);
+    }
+  });
+  // Clear fields
+  ['ac-name','ac-email','ac-company','ac-location','ac-desc'].forEach(function(id){ const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('ac-status').value='3 Pre Check';
+  document.getElementById('ac-cat').value='';
+  document.getElementById('ac-err').style.display='none';
+  document.getElementById('add-contact-overlay').style.display='block';
+  document.getElementById('add-contact-modal').style.display='block';
+  setTimeout(function(){ document.getElementById('ac-name').focus(); }, 100);
+}
+
+function hideAddContact(){
+  document.getElementById('add-contact-overlay').style.display='none';
+  document.getElementById('add-contact-modal').style.display='none';
+}
+
+function submitAddContact(){
+  const name  = (document.getElementById('ac-name')?.value||'').trim();
+  const email = (document.getElementById('ac-email')?.value||'').trim();
+  const company = (document.getElementById('ac-company')?.value||'').trim();
+  const location= (document.getElementById('ac-location')?.value||'').trim();
+  const desc  = (document.getElementById('ac-desc')?.value||'').trim();
+  const status= document.getElementById('ac-status')?.value||'3 Pre Check';
+  const cat   = document.getElementById('ac-cat')?.value||'';
+  const errEl = document.getElementById('ac-err');
+
+  if(!name){ errEl.textContent='Name is required'; errEl.style.display='block'; return; }
+  if(!email || !email.includes('@')){ errEl.textContent='Valid email is required'; errEl.style.display='block'; return; }
+
+  // Check for duplicate email
+  const dup = contacts.find(function(c){ return c.email && c.email.toLowerCase()===email.toLowerCase(); });
+  if(dup){ errEl.textContent='This email already exists: '+dup.name+' ('+dup.company+')'; errEl.style.display='block'; return; }
+
+  const btn = document.getElementById('ac-submit');
+  btn.textContent='Adding…'; btn.disabled=true;
+
+  const newContact = {name, email, company, location, desc, status, cat, owner:'BEV', lm:'', ld:''};
+
+  // Save to sheet via GAS
+  if(APPS_SCRIPT_URL && APPS_SCRIPT_URL!=='YOUR_APPS_SCRIPT_URL_HERE'){
+    fetch(APPS_SCRIPT_URL,{
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'add_new', client:curClient, contact:newContact}),
+      redirect:'follow'
+    }).then(function(r){return r.json();})
+      .then(function(d){
+        if(d.ok||d.rowId){
+          // Add to local contacts with the returned row ID
+          newContact.id = d.rowId || (Math.max.apply(null, contacts.map(function(c){return c.id||0;})) + 1);
+          contacts.unshift(newContact);
+          updateCounts();
+          renderLeads();
+          hideAddContact();
+          flash('Contact added: '+name);
+        } else {
+          errEl.textContent = 'Error saving: '+(d.error||'unknown error');
+          errEl.style.display='block';
+          btn.textContent='Add Contact'; btn.disabled=false;
+        }
+      }).catch(function(e){
+        errEl.textContent='Network error: '+e.message;
+        errEl.style.display='block';
+        btn.textContent='Add Contact'; btn.disabled=false;
+      });
+  } else {
+    // No GAS URL — add locally only
+    newContact.id = Math.max.apply(null, contacts.map(function(c){return c.id||0;})) + 1;
+    contacts.unshift(newContact);
+    updateCounts();
+    renderLeads();
+    hideAddContact();
+    flash('Contact added locally (no sheet sync)');
+  }
+}
 </script>
+
+<!-- ADD CONTACT MODAL -->
+<div id="add-contact-overlay" onclick="hideAddContact()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000"></div>
+<div id="add-contact-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--paper);border-radius:10px;padding:28px;width:460px;max-width:95vw;z-index:1001;box-shadow:0 8px 40px rgba(0,0,0,0.25)">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div style="font-size:16px;font-weight:700;color:var(--ink)">Add Contact</div>
+    <span onclick="hideAddContact()" style="cursor:pointer;font-size:18px;color:var(--ink3);line-height:1">✕</span>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div>
+        <label style="font-size:11px;font-weight:600;color:var(--ink3);display:block;margin-bottom:3px">FULL NAME *</label>
+        <input id="ac-name" class="set-inp" placeholder="John Smith" style="width:100%;box-sizing:border-box"/>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:600;color:var(--ink3);display:block;margin-bottom:3px">EMAIL *</label>
+        <input id="ac-email" class="set-inp" type="email" placeholder="john@firm.com" style="width:100%;box-sizing:border-box"/>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div>
+        <label style="font-size:11px;font-weight:600;color:var(--ink3);display:block;margin-bottom:3px">COMPANY / FIRM</label>
+        <input id="ac-company" class="set-inp" placeholder="Firm name" style="width:100%;box-sizing:border-box"/>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:600;color:var(--ink3);display:block;margin-bottom:3px">LOCATION</label>
+        <input id="ac-location" class="set-inp" placeholder="City, Country" style="width:100%;box-sizing:border-box"/>
+      </div>
+    </div>
+    <div>
+      <label style="font-size:11px;font-weight:600;color:var(--ink3);display:block;margin-bottom:3px">DESCRIPTION / BACKGROUND</label>
+      <textarea id="ac-desc" class="set-inp" placeholder="Managing Partner at XYZ Capital, a family office focused on..." rows="3" style="width:100%;box-sizing:border-box;resize:vertical;font-family:inherit"></textarea>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div>
+        <label style="font-size:11px;font-weight:600;color:var(--ink3);display:block;margin-bottom:3px">STATUS</label>
+        <select id="ac-status" class="set-inp" style="width:100%;box-sizing:border-box">
+          <option value="3 Pre Check">Pre Check</option>
+          <option value="2 Warm">Warm</option>
+          <option value="1 Hot">Hot</option>
+          <option value="4 No">No</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:600;color:var(--ink3);display:block;margin-bottom:3px">CATEGORY</label>
+        <select id="ac-cat" class="set-inp" style="width:100%;box-sizing:border-box">
+          <option value="">— Select —</option>
+          <option value="SFO">SFO</option>
+          <option value="MFO">MFO</option>
+          <option value="WM">WM</option>
+          <option value="ENDOWMENT">Endowment</option>
+          <option value="SOVEREIGN">Sovereign</option>
+          <option value="PENSION">Pension</option>
+          <option value="RIA">RIA</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div id="ac-err" style="color:#c44;font-size:12px;margin-top:8px;display:none"></div>
+  <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
+    <button onclick="hideAddContact()" style="padding:8px 18px;border-radius:5px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--ink2);font-size:13px">Cancel</button>
+    <button onclick="submitAddContact()" id="ac-submit" style="padding:8px 20px;border-radius:5px;cursor:pointer;border:none;background:var(--gold);color:#fff;font-size:13px;font-weight:600">Add Contact</button>
+  </div>
+</div>
 </body>
 </html>
