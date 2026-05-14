@@ -1683,7 +1683,7 @@ function renderLeads(){
       <div class="lm" onclick="toggleExp('${r.id}')" style="flex:1">
         <div class="lm-main">
           <div style="display:flex;align-items:center;gap:6px">
-            <div class="lm-company">${displayName}</div>
+            <div class="lm-company" data-id="${r.id}" onclick="event.stopPropagation();startEditCompany(this)" title="Click to edit company name" style="cursor:text">${displayName}</div>
             <span onclick="event.stopPropagation();showCatPicker('${r.id}',this)" style="font-size:10px;padding:1px 6px;border-radius:10px;cursor:pointer;background:${catColors[r.cat]||'#ccc'};color:#fff;white-space:nowrap;font-weight:500;opacity:0.9">${r.cat||'+'}</span>
           </div>
           ${displaySub?`<div class="lm-name">${displaySub}</div>`:''}
@@ -4723,6 +4723,34 @@ function submitAddContact(){
     hideAddContact();
     flash('Contact added locally (no sheet sync)');
   }
+}
+
+function startEditCompany(el) {
+  if (el.querySelector('input')) return;
+  const id = el.dataset.id;
+  const c = contacts.find(function(x){ return String(x.id) === String(id); });
+  const orig = el.textContent;
+  const currentVal = (c && c.company) || orig;
+  el.textContent = '';
+  const inp = document.createElement('input');
+  inp.value = currentVal;
+  inp.style.cssText = 'font:inherit;color:inherit;background:transparent;border:none;border-bottom:1px solid var(--gold);outline:none;width:100%;min-width:80px;padding:0;font-weight:600;font-size:inherit';
+  el.appendChild(inp);
+  inp.focus(); inp.select();
+  function save() {
+    const newVal = inp.value.trim();
+    el.textContent = newVal || orig;
+    if (newVal && newVal !== currentVal) {
+      if (c) { c.company = newVal; saveLocal(); }
+      pushUpdate(id, {company: newVal});
+      flash('Company updated');
+    }
+  }
+  inp.onblur = save;
+  inp.onkeydown = function(e) {
+    if (e.key === 'Enter') { inp.blur(); }
+    if (e.key === 'Escape') { el.textContent = orig; inp.onblur = null; }
+  };
 }
 </script>
 
