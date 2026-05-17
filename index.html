@@ -2783,6 +2783,30 @@ function closeForecastModal(){
 function removeForecastRow(btn){
   const tr = btn.closest ? btn.closest('tr') : btn.parentElement.parentElement;
   if(tr) tr.remove();
+  // Immediately save the updated forecast after removing the row
+  saveForecastFromInputs();
+}
+
+function saveForecastFromInputs(){
+  // Collect all remaining forecast rows from the DOM and save
+  const f = loadForecast();
+  const years = [];
+  var i = 0;
+  while(i < 20){
+    const yrEl = document.getElementById('fc-yr-'+i);
+    if(!yrEl){ i++; continue; }
+    // Check if this row still exists in the DOM (not removed)
+    if(!yrEl.closest('tr')){ i++; continue; }
+    years.push({
+      year:           parseInt(yrEl.value)||2026,
+      retainer:       parseFloat(document.getElementById('fc-ret-'+i)?.value||0)||0,
+      success:        parseFloat(document.getElementById('fc-suc-'+i)?.value||0)||0,
+      retainerTarget: parseFloat(document.getElementById('fc-rtt-'+i)?.value||0)||0,
+      successTarget:  parseFloat(document.getElementById('fc-sut-'+i)?.value||0)||0,
+    });
+    i++;
+  }
+  saveForecast({...f, years:years});
 }
 function addForecastYear(){
   const tbody = document.querySelector('#fc-modal tbody');
