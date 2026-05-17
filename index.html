@@ -1235,8 +1235,20 @@ function parseRow(r,i){
   const lm        = stripEmailChain(isObj ? (r.lm||'') : (r[6]||''));
   const ldRaw     = isObj ? r.ld              : r[7];
   const _rawDesc  = isObj ? (r.desc||'') : (r[9]||'');
-  // Strip greetings that leaked into descriptions
-  const desc = _rawDesc.replace(/\bDear [A-Za-z-]+,?/g,'').replace(/\bHi [A-Za-z-]+,?/g,'').replace(/^\s*at\s+/,'').trim();
+  // Strip greetings/signatures that leaked into descriptions
+  const desc = _rawDesc
+    .replace(/\bDear [A-Za-z-]+,?/g,'')
+    .replace(/\bHi [A-Za-z-]+,?/g,'')
+    .replace(/\bBest regards,?/gi,'')
+    .replace(/\bKind regards,?/gi,'')
+    .replace(/\bSincerely,?/gi,'')
+    .replace(/\bCheers,?/gi,'')
+    .replace(/\bSaludos,?/gi,'')
+    .replace(/\bat Best regards/gi,'')
+    .replace(/\bat Dear [A-Za-z-]+/gi,'')
+    .replace(/^\s*at\s+/,'')
+    .replace(/,\s*$/,'')
+    .trim();
   const log       = isObj ? (r.log||'')       : (r[10]||'');  // col 11 = index 10
   const action    = isObj ? (r.action||'')    : (r[10]||'');  // same col, first line of log
   const ticketCur = isObj ? (r.ticketCur||'') : (r[11]||''); // col 12 = index 11
