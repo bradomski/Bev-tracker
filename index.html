@@ -2694,14 +2694,21 @@ function saveBDToSheet(b, fields){
 
 const FORECAST_KEY = 'bev_forecast_v1';
 async function loadForecastFromSheet(){
+  // localStorage is primary — only fetch from sheet if localStorage is empty
+  try{
+    const local = JSON.parse(localStorage.getItem(FORECAST_KEY)||'{}');
+    if(local && local.years && local.years.length) return local;
+  }catch(e){}
+  // No local data — try sheet
   try {
-    const r = await fetch(APPS_SCRIPT_URL+'?action=get_settings&t='+Date.now(), {redirect:'follow'});
-    const d = await r.json();
-    if(d.settings && d.settings.forecast){
-      try{ localStorage.setItem(FORECAST_KEY, JSON.stringify(d.settings.forecast)); }catch(e){}
-      return d.settings.forecast;
-    }
-  } catch(e) { console.error('loadForecast sheet error:', e); }
+    fetch(APPS_SCRIPT_URL+'?action=get_settings&t='+Date.now(), {redirect:'follow'})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(d.settings && d.settings.forecast){
+          try{ localStorage.setItem(FORECAST_KEY, JSON.stringify(d.settings.forecast)); }catch(e){}
+        }
+      }).catch(function(e){});
+  } catch(e) {}
   try{ return JSON.parse(localStorage.getItem(FORECAST_KEY)||'{}'); }catch(e){ return {}; }
 }
 function loadForecast(){ try{ return JSON.parse(localStorage.getItem(FORECAST_KEY)||'{}'); }catch(e){ return {}; } }
@@ -2715,8 +2722,9 @@ function saveForecast(d){
       headers:{'Content-Type':'text/plain'},
       body:JSON.stringify({action:'save_setting', key:'forecast', value:d}),
       redirect:'follow'
-    }).then(function(){ setSS('ok','Saved · '+new Date().toLocaleTimeString().slice(0,5)); })
-      .catch(function(e){ setSS('err','Save failed'); });
+    }).then(function(r){ return r.json(); })
+      .then(function(res){ setSS('ok','Saved · '+new Date().toLocaleTimeString().slice(0,5)); console.log('Forecast saved to sheet:',JSON.stringify(res)); })
+      .catch(function(e){ setSS('err','Save failed'); console.error('Forecast save error:',e.message); });
   }
 }
 
