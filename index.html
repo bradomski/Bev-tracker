@@ -1223,7 +1223,7 @@ function parseRow(r,i){
   const email     = isObj ? (r.email||'')     : (r[1]||'');
   const _rawCo    = isObj ? (r.company||'') : (r[2]||'');
   // Strip bad company names: greetings, subject lines, dates
-  const _badCoRx  = /^(Hi |Dear |Re:|Fwd:|Asunto:|Hello |Hola )/i;
+  const _badCoRx  = /^(Hi |Dear |Re:|Fwd:|Asunto:|Hello |Hola |Best |Kind |Regards|Saludos|Cordiali|Thanks|Cheers|Sincerely)/i;
   const _badCoStr = ['MWC - Deep', ' - Deep Detection', 'Detection'];
   const _isBadCo  = _badCoRx.test(_rawCo) ||
     _badCoStr.some(function(s){ return _rawCo.indexOf(s) > -1; }) ||
@@ -1234,7 +1234,9 @@ function parseRow(r,i){
   const owner     = isObj ? (r.owner||'BEV')  : (r[5]||'BEV');
   const lm        = stripEmailChain(isObj ? (r.lm||'') : (r[6]||''));
   const ldRaw     = isObj ? r.ld              : r[7];
-  const desc      = isObj ? (r.desc||'')      : (r[9]||'');
+  const _rawDesc  = isObj ? (r.desc||'') : (r[9]||'');
+  // Strip greetings that leaked into descriptions
+  const desc = _rawDesc.replace(/\bDear [A-Za-z-]+,?/g,'').replace(/\bHi [A-Za-z-]+,?/g,'').replace(/^\s*at\s+/,'').trim();
   const log       = isObj ? (r.log||'')       : (r[10]||'');  // col 11 = index 10
   const action    = isObj ? (r.action||'')    : (r[10]||'');  // same col, first line of log
   const ticketCur = isObj ? (r.ticketCur||'') : (r[11]||''); // col 12 = index 11
