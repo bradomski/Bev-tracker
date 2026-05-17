@@ -1003,18 +1003,24 @@ function doLogin(){
   // Clear any cross-contaminated caches (same data saved under wrong client key)
   (function cleanCaches(){
     const clientIds = Object.keys(CLIENTS);
+    // Build fingerprint from first 3 rows to better detect contamination
+    function fingerprint(rows){
+      if(!rows||!rows.length) return '';
+      return rows.slice(0,3).map(function(r){
+        return (r[0]||'')+'|'+(r[1]||''); // name|email
+      }).join(',');
+    }
     const seen = {};
     clientIds.forEach(function(id){
-      const raw = localStorage.getItem('bev-cache-'+id);
+      const raw = localStorage.getItem('bev-cache-'+CACHE_VER+'-'+id);
       if(!raw) return;
       try{
         const data = JSON.parse(raw);
-        const key = (data.rows&&data.rows[0]) ? JSON.stringify(data.rows[0]).slice(0,50) : '';
+        const key = fingerprint(data.rows);
         if(key && seen[key] && seen[key]!==id){
-          // This cache has the same first row as another client — contaminated, clear it
           console.log('Clearing contaminated cache for',id,'(matches',seen[key]+')');
-          localStorage.removeItem('bev-cache-'+id);
-          localStorage.removeItem('bev-cache-time-'+id);
+          localStorage.removeItem('bev-cache-'+CACHE_VER+'-'+id);
+          localStorage.removeItem('bev-cache-time-'+CACHE_VER+'-'+id);
         } else if(key){
           seen[key] = id;
         }
@@ -1215,7 +1221,14 @@ function parseRow(r,i){
   const isObj = r && typeof r === 'object' && !Array.isArray(r);
   const name      = isObj ? (r.name||'')      : (r[0]||'');
   const email     = isObj ? (r.email||'')     : (r[1]||'');
-  const company   = isObj ? (r.company||'')   : (r[2]||'');
+  const _rawCo    = isObj ? (r.company||'') : (r[2]||'');
+  // Strip bad company names: greetings, subject lines, dates
+  const _badCoRx  = /^(Hi |Dear |Re:|Fwd:|Asunto:|Hello |Hola )/i;
+  const _badCoStr = ['MWC - Deep', ' - Deep Detection', 'Detection'];
+  const _isBadCo  = _badCoRx.test(_rawCo) ||
+    _badCoStr.some(function(s){ return _rawCo.indexOf(s) > -1; }) ||
+    _rawCo.length > 80;
+  const company   = _isBadCo ? '' : _rawCo;
   const location  = isObj ? (r.location||'')  : (r[3]||'');
   const status    = isObj ? (r.status||'3 Pre Check') : (r[4]||'3 Pre Check');
   const owner     = isObj ? (r.owner||'BEV')  : (r[5]||'BEV');
@@ -1903,8 +1916,9 @@ function removeSelectedContacts(){
 
 // ── Cache config ────────────────────────────────────────────────────────────
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours — sync once per day
-const cacheKey = () => 'bev-cache-' + curClient;
-const cacheTimeKey = () => 'bev-cache-ts-' + curClient;
+const CACHE_VER = 'v3'; // bump to force-clear all caches
+const cacheKey = () => 'bev-cache-' + CACHE_VER + '-' + curClient;
+const cacheTimeKey = () => 'bev-cache-time-' + CACHE_VER + '-' + curClient;
 const scanTimeKey = () => 'bev-scan-ts-' + curClient;
 
 function getCachedRows(){
@@ -1918,8 +1932,8 @@ function getCachedRows(){
 function setCachedRows(rows, activity, clientId){
   try{
     // Use explicit clientId if provided (prevents async race condition)
-    const key = clientId ? 'bev-cache-'+clientId : cacheKey();
-    const tkey = clientId ? 'bev-cache-time-'+clientId : cacheTimeKey();
+    const key = clientId ? 'bev-cache-'+CACHE_VER+'-'+clientId : cacheKey();
+    const tkey = clientId ? 'bev-cache-time-'+CACHE_VER+'-'+clientId : cacheTimeKey();
     localStorage.setItem(key, JSON.stringify({rows, activity}));
     localStorage.setItem(tkey, String(Date.now()));
   }catch(e){}
@@ -2268,13 +2282,14 @@ function updateOwner(id,newOwner,btn){
 const _writeQueue = {}; // id -> {fields, timer}
 function pushUpdate(id, fields){
   if(!APPS_SCRIPT_URL||APPS_SCRIPT_URL==='YOUR_APPS_SCRIPT_URL_HERE') return;
-  // Merge into pending write for this contact
-  if(!_writeQueue[id]) _writeQueue[id] = {fields:{}, timer:null};
+  // Capture client NOW — not inside setTimeout (race condition if user switches client)
+  const _capturedClient = curClient;
+  if(!_writeQueue[id]) _writeQueue[id] = {fields:{}, timer:null, client:_capturedClient};
   Object.assign(_writeQueue[id].fields, fields);
-  // Debounce: wait 1.5s after last change before writing
+  // Keep the originally captured client (don't overwrite if already set)
   clearTimeout(_writeQueue[id].timer);
   _writeQueue[id].timer = setTimeout(function(){
-    _flushWrite(id, curClient);
+    _flushWrite(id, _writeQueue[id].client || _capturedClient);
   }, 1500);
 }
 async function _flushWrite(id, client){
@@ -3382,7 +3397,7 @@ function buildClientPipelineData(){
       ctList = contacts;
     } else {
       try{
-        const cacheRaw = localStorage.getItem('bev-cache-'+id);
+        const cacheRaw = localStorage.getItem('bev-cache-'+CACHE_VER+'-'+id);
         if(cacheRaw){
           const cached = JSON.parse(cacheRaw);
           ctList = (cached.rows||[]).map(parseRow);
