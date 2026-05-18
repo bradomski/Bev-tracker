@@ -1344,7 +1344,7 @@ function loadDemo(){
       {id:201,name:'Heather Bell',email:'heather@vesta-capital.io',company:'Vesta Capital',location:'New York, USA',status:'2 Warm',owner:'BEV',lm:'I am available today 9-9:30am EST and 10-10:30am EST tomorrow morning.',ld:ago(1),desc:'NY-based investment firm. Proactively offered call slots — highest urgency.',action:'Book call TODAY — Heather offered two slots'},
     ],
   };
-  const raw=sets[curClient]||sets.preston;
+  const raw=sets[curClient]||[];
   contacts=raw.map(r=>{
     const days=r.ld?Math.round((new Date().setHours(12,0,0,0)-r.ld)/86400000):null;
     return{...r,ldStr:r.ld?fmtD(r.ld):'—',days,ticketCur:r.ticketCur||'',ticketAmt:r.ticketAmt||'',
@@ -2148,10 +2148,12 @@ async function loadFromSheet(){
 function mergeGmailActivity(activity){
   // Called after sheet load — merges new Gmail detections into action log
   activity.forEach(act=>{
-    const r=contacts.find(x=>
-      (act.email&&x.email&&x.email.toLowerCase()===act.email.toLowerCase())||
-      (act.name&&x.name&&x.name.toLowerCase()===act.name.toLowerCase())
-    );
+    // First pass: Try to find an exact email match (prevents name-collision bugs)
+    let r = contacts.find(x => act.email && x.email && act.email.toLowerCase() === x.email.toLowerCase());
+    // Second pass: If email doesn't match or is missing, fallback to name match so we don't miss the reply
+    if (!r) {
+      r = contacts.find(x => act.name && x.name && act.name.toLowerCase() === x.name.toLowerCase());
+    }
     if(!r)return;
     if(!actionLog[r.id])actionLog[r.id]=getLog(r);
 
