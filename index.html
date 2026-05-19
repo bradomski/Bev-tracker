@@ -1231,7 +1231,9 @@ function parseRow(r,i){
   const company   = _isBadCo ? '' : _rawCo;
   const location  = isObj ? (r.location||'')  : (r[3]||'');
   const status    = isObj ? (r.status||'3 Pre Check') : (r[4]||'3 Pre Check');
-  const owner     = isObj ? (r.owner||'BEV')  : (r[5]||'BEV');
+  const ownerRaw  = isObj ? (r.owner||'BEV')  : (r[5]||'BEV');
+  const isClient = ownerRaw.toUpperCase() !== 'BEV' && ownerRaw.toUpperCase() !== 'BOTH';
+  const owner = isClient ? (typeof CLIENTS !== 'undefined' && curClient && CLIENTS[curClient] ? CLIENTS[curClient].name : ownerRaw) : ownerRaw;
   const lm        = stripEmailChain(isObj ? (r.lm||'') : (r[6]||''));
   const ldRaw     = isObj ? r.ld              : r[7];
   const _rawDesc  = isObj ? (r.desc||'') : (r[9]||'');
