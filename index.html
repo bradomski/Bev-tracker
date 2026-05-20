@@ -2110,8 +2110,10 @@ async function loadFromSheet(){
       var existing = actionLog[c.id];
       if(!existing || !existing.length){
         // Parse sheet log lines back into actionLog entries
-        // Handle pipe-separated format: [11 May 26 8:35:] CALL-NOTE: text | [...]
+        // Handle pipe-separated format AND Apps Script newline-separated format
         var raw = c.log.trim();
+        // Replace newlines that start a new log entry with ' | ', and other newlines with space
+        raw = raw.replace(/\n(?=\d{1,2}\s+[A-Za-z]{3}|\[)/g, ' | ').replace(/\n/g, ' ');
         var entries = raw.split(' | ').filter(Boolean);
         var parsed = [];
         entries.forEach(function(entry){
