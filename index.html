@@ -1229,8 +1229,8 @@ function parseRow(r,i){
   // Rejects values that are clearly email signatures, job titles, phone
   // numbers, first names, or email domains rather than company names.
   const _coTrim = _rawCo.trim();
-  // 1. Starts with a common greeting/signature word (also catches "Warm,", "Best.")
-  const _badCoRx = /^(Hi[\s,!]|Dear[\s,]|Re:|Fwd:|Asunto:|Hello[\s,!]|Hola[\s,]|Best[\s.,!]|Kind[\s,]|Regards|Warm[\s,]|Saludos|Cordiali|Thanks[\s,!.]|Cheers[\s,!.]|Sincerely|Good\s(morning|afternoon|evening)|Hope\s)/i;
+  // 1. Starts with a common greeting/signature word (also catches "Warm,", "Best.", "Subject:")
+  const _badCoRx = /^(Hi[\s,!]|Dear[\s,]|Re:|Fwd:|Subject:|Asunto:|Hello[\s,!]|Hola[\s,]|Best[\s.,!]|Kind[\s,]|Regards|Warm[\s,]|Saludos|Cordiali|Thanks[\s,!.]|Cheers[\s,!.]|Sincerely|Good\s(morning|afternoon|evening)|Hope\s)/i;
   // 2. Contains signature phrases anywhere (e.g. "Warm Regards,")
   const _hasSignaturePhrase = /\b(warm regards|best regards|kind regards|best wishes|many thanks|with regards|yours (sincerely|faithfully|truly))\b/i.test(_coTrim);
   // 3. Looks like a phone/mobile number entry
@@ -1269,9 +1269,10 @@ function parseRow(r,i){
       }
       if(!_cp) _cp = _parts[0] || '';
       // Skip personal / generic email providers
-      if(/^(gmail|yahoo|hotmail|outlook|icloud|live|msn|aol|mail|protonmail|yandex|gmx|zoho|fastmail|me|googlemail|mailcom|inbox|web|pm)$/i.test(_cp)) return '';
-      // Capitalise first letter and return
-      return _cp.charAt(0).toUpperCase() + _cp.slice(1);
+      if(/^(gmail|yahoo|hotmail|outlook|icloud|live|msn|aol|mail|protonmail|yandex|gmx|zoho|fastmail|me|googlemail|mailcom|inbox|web|pm|hetnet|telenet|btinternet|virginmedia|comcast|att|verizon|t-online|orange|wanadoo|free|sfr|laposte)$/i.test(_cp)) return '';
+      // Replace hyphens with spaces, then title-case
+      const _clean = _cp.replace(/-/g, ' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+      return _clean;
     } catch(e){ return ''; }
   })();
   const location  = isObj ? (r.location||'')  : (r[3]||'');
