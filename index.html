@@ -1232,7 +1232,7 @@ function parseRow(r,i){
   // 1. Starts with a common greeting/signature word (also catches "Warm,", "Best.", "Subject:")
   const _badCoRx = /^(Hi[\s,!]|Dear[\s,]|Re:|Fwd:|Subject:|Asunto:|Hello[\s,!]|Hola[\s,]|Best[\s.,!]|Kind[\s,]|Regards|Warm[\s,]|Saludos|Cordiali|Thanks[\s,!.]|Cheers[\s,!.]|Sincerely|Good\s(morning|afternoon|evening)|Hope\s)/i;
   // 2. Contains signature phrases anywhere (e.g. "Warm Regards,")
-  const _hasSignaturePhrase = /\b(warm regards|best regards|kind regards|best wishes|many thanks|with regards|yours (sincerely|faithfully|truly))\b/i.test(_coTrim);
+  const _hasSignaturePhrase = /\b(warm regards|best regards|kind regards|best wishes|many thanks|with regards|yours (sincerely|faithfully|truly)|all the best)\b/i.test(_coTrim);
   // 3. Looks like a phone/mobile number entry
   const _isPhone = /^(mobile|phone|tel|cell|whatsapp)[\s:]/i.test(_coTrim) || /\+\d{7,}/.test(_coTrim);
   // 4. Looks like a job title (not a company)
@@ -1249,9 +1249,12 @@ function parseRow(r,i){
     (_coTrim.split(' ').length >= 5 && !_financeKw.test(_coTrim));
   // 8. Known bad literal strings
   const _badCoStr = ['MWC - Deep', ' - Deep Detection', 'Detection'];
+  // 9. Is just an email address
+  const _isEmailInCo = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(_coTrim);
+
   const _isBadCo = _badCoRx.test(_coTrim) ||
     _hasSignaturePhrase || _isPhone || _isJobTitle ||
-    _isSingleWord || _isEmailDomain || _looksLikeSubject ||
+    _isSingleWord || _isEmailDomain || _looksLikeSubject || _isEmailInCo ||
     _badCoStr.some(function(s){ return _coTrim.indexOf(s) > -1; }) ||
     _coTrim.length > 80;
   const company = (function(){
