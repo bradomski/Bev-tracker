@@ -1114,18 +1114,19 @@ function switchClient(id,btn){
   curClient=id;expandedId=null;
   // Immediately wipe contacts so previous client's rows can't flash on screen
   contacts=[];
+  renderLeads(); // render empty list immediately — no stale data visible during load
   // Clear action log (client-specific)
   Object.keys(actionLog).forEach(k=>delete actionLog[k]);
   // Clear pending new contacts — they belong to previous client
   _pendingNewContacts = [];
   const oldPanel = document.getElementById('nc-panel');
   if(oldPanel) oldPanel.remove();
-  // Auto-scan will trigger inside loadData if not scanned today for this client
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
   if(btn)btn.classList.add('on');
   document.getElementById('nb-leads')?.classList.add('on');
   document.getElementById('tb-title').textContent=CLIENTS[id]?.name||id;
-  showView('leads');loadData();resetSarah();
+  // Force fresh fetch from sheet when switching clients (never use another client's cache)
+  showView('leads');loadData(true);resetSarah();
 }
 function showView(v,btn){
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('on'));
@@ -1941,7 +1942,7 @@ function removeSelectedContacts(){
 
 // ── Cache config ────────────────────────────────────────────────────────────
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours — sync once per day
-const CACHE_VER = 'v4'; // bumped to force-clear all caches (fix: client data contamination)
+const CACHE_VER = 'v5'; // bumped to force-clear all caches (fix: client ID validation)
 const cacheKey = () => 'bev-cache-' + CACHE_VER + '-' + curClient;
 const cacheTimeKey = () => 'bev-cache-time-' + CACHE_VER + '-' + curClient;
 const scanTimeKey = () => 'bev-scan-ts-' + curClient;
@@ -1951,15 +1952,25 @@ function getCachedRows(){
     const ts = parseInt(localStorage.getItem(cacheTimeKey())||'0');
     if(Date.now()-ts > CACHE_TTL_MS) return null; // stale
     const raw = localStorage.getItem(cacheKey());
-    return raw ? JSON.parse(raw) : null;
+    if(!raw) return null;
+    const parsed = JSON.parse(raw);
+    // CRITICAL: validate cache belongs to this client — reject if client ID mismatch
+    if(parsed._clientId && parsed._clientId !== curClient){
+      console.warn('Cache client mismatch: expected',curClient,'got',parsed._clientId,'— discarding');
+      localStorage.removeItem(cacheKey());
+      return null;
+    }
+    return parsed;
   }catch(e){ return null; }
 }
 function setCachedRows(rows, activity, clientId){
   try{
+    const cid = clientId || curClient;
     // Use explicit clientId if provided (prevents async race condition)
-    const key = clientId ? 'bev-cache-'+CACHE_VER+'-'+clientId : cacheKey();
-    const tkey = clientId ? 'bev-cache-time-'+CACHE_VER+'-'+clientId : cacheTimeKey();
-    localStorage.setItem(key, JSON.stringify({rows, activity}));
+    const key = 'bev-cache-'+CACHE_VER+'-'+cid;
+    const tkey = 'bev-cache-time-'+CACHE_VER+'-'+cid;
+    // Embed client ID inside payload so getCachedRows can validate on load
+    localStorage.setItem(key, JSON.stringify({rows, activity, _clientId: cid}));
     localStorage.setItem(tkey, String(Date.now()));
   }catch(e){}
 }function lastScanWasToday(){
