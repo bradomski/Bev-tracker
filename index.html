@@ -1225,18 +1225,36 @@ function parseRow(r,i){
   const name      = isObj ? (r.name||'')      : (r[0]||'');
   const email     = isObj ? (r.email||'')     : (r[1]||'');
   const _rawCo    = isObj ? (r.company||'') : (r[2]||'');
-  // Strip bad company names: greetings, subject lines, email subjects
-  const _badCoRx  = /^(Hi |Dear |Re:|Fwd:|Asunto:|Hello |Hola |Best |Kind |Regards|Saludos|Cordiali|Thanks|Cheers|Sincerely)/i;
+  // ── Company name sanity filter ──────────────────────────────────────────
+  // Rejects values that are clearly email signatures, job titles, phone
+  // numbers, first names, or email domains rather than company names.
+  const _coTrim = _rawCo.trim();
+  // 1. Starts with a common greeting/signature word (also catches "Warm,", "Best.")
+  const _badCoRx = /^(Hi[\s,!]|Dear[\s,]|Re:|Fwd:|Asunto:|Hello[\s,!]|Hola[\s,]|Best[\s.,!]|Kind[\s,]|Regards|Warm[\s,]|Saludos|Cordiali|Thanks[\s,!.]|Cheers[\s,!.]|Sincerely|Good\s(morning|afternoon|evening)|Hope\s)/i;
+  // 2. Contains signature phrases anywhere (e.g. "Warm Regards,")
+  const _hasSignaturePhrase = /\b(warm regards|best regards|kind regards|best wishes|many thanks|with regards|yours (sincerely|faithfully|truly))\b/i.test(_coTrim);
+  // 3. Looks like a phone/mobile number entry
+  const _isPhone = /^(mobile|phone|tel|cell|whatsapp)[\s:]/i.test(_coTrim) || /\+\d{7,}/.test(_coTrim);
+  // 4. Looks like a job title (not a company)
+  const _isJobTitle = /^(managing director|business developer|business development|head of|senior manager|senior partner|partner at|director of|chief executive|chief investment|chief financial|portfolio manager|investment manager|vice president|founding partner|general partner|limited partner|private investor|independent|freelance|consultant)/i.test(_coTrim);
+  // 5. Single word + optional punctuation — allow known short company abbreviations
+  const _isSingleWord = /^[A-Za-z]{1,12}[.,!]?$/.test(_coTrim) &&
+    !/^(zaka|spoko|ubs|bnp|eif|axa|ing|hsbc|bbr|roc|kic|eqt|abf|arc|gic|psp|bmo|rbc|seb|dnb|kkr|bain|lgt|amg)$/i.test(_coTrim);
+  // 6. All-lowercase long string no spaces = email domain extract (e.g. "thevermafamily")
+  const _isEmailDomain = /^[a-z][a-z0-9]{9,}$/.test(_coTrim);
+  // 7. Subject-line style: %, ends with ;, or 5+ plain words with no finance keyword
+  const _financeKw = /\b(capital|partners|management|ventures|fund|group|holdings|office|advisors|investments|asset|wealth|family|associates|bank|trust|equity|credit|financial|technologies|consulting|services|solutions|agency|limited|llc|ltd|inc|co\.|sa|ag|plc|lp)\b/i;
+  const _looksLikeSubject = /%/.test(_coTrim) ||
+    _coTrim.endsWith(';') ||
+    (_coTrim.split(' ').length >= 5 && !_financeKw.test(_coTrim));
+  // 8. Known bad literal strings
   const _badCoStr = ['MWC - Deep', ' - Deep Detection', 'Detection'];
-  // Also reject: strings containing %, sentences with 5+ words (email subjects), or ending in ;
-  const _looksLikeSubject = /%/.test(_rawCo) ||
-    _rawCo.trim().endsWith(';') ||
-    (_rawCo.split(' ').length >= 5 && !/\b(capital|partners|management|ventures|fund|group|holdings|office|advisors|investments|asset|wealth|family|associates|bank|trust|equity|credit|financial|technologies|consulting|services|solutions|agency|limited|llc|ltd|inc|co\.)\b/i.test(_rawCo));
-  const _isBadCo  = _badCoRx.test(_rawCo) ||
-    _badCoStr.some(function(s){ return _rawCo.indexOf(s) > -1; }) ||
-    _rawCo.length > 80 ||
-    _looksLikeSubject;
-  const company   = _isBadCo ? '' : _rawCo;
+  const _isBadCo = _badCoRx.test(_coTrim) ||
+    _hasSignaturePhrase || _isPhone || _isJobTitle ||
+    _isSingleWord || _isEmailDomain || _looksLikeSubject ||
+    _badCoStr.some(function(s){ return _coTrim.indexOf(s) > -1; }) ||
+    _coTrim.length > 80;
+  const company = _isBadCo ? '' : _rawCo;
   const location  = isObj ? (r.location||'')  : (r[3]||'');
   const status    = isObj ? (r.status||'3 Pre Check') : (r[4]||'3 Pre Check');
   const ownerRaw  = isObj ? (r.owner||'BEV')  : (r[5]||'BEV');
