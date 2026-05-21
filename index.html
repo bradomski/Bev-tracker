@@ -2099,7 +2099,7 @@ async function loadData(forceRefresh){
         setSS('ok','Cached · synced '+ageStr+' · ↻ to refresh');
       } else {
         // Live fetch from sheet
-        await loadFromSheet();
+        await loadFromSheet(_loadClient);
         const ts = new Date().toLocaleTimeString().slice(0,5);
         setSS('ok','Live · '+ts);
       }
@@ -2145,9 +2145,10 @@ async function loadData(forceRefresh){
   }
 }
 
-async function loadFromSheet(){
+async function loadFromSheet(clientToLoad){
+  const targetClient = clientToLoad || curClient;
   const since=new Date(Date.now()-30*86400000).toISOString();
-  const url=APPS_SCRIPT_URL+'?client='+curClient+'&action=read&since='+encodeURIComponent(since)+'&t='+Date.now();
+  const url=APPS_SCRIPT_URL+'?client='+targetClient+'&action=read&since='+encodeURIComponent(since)+'&t='+Date.now();
   console.log('Fetching:',url);
   // Apps Script redirects to googleusercontent.com — follow the redirect
   const res=await fetch(url,{method:'GET',redirect:'follow',cache:'no-store'});
@@ -2159,10 +2160,17 @@ async function loadFromSheet(){
   if(d.error)throw new Error('Script error: '+d.error);
   if(!d.rows||!Array.isArray(d.rows))throw new Error('No rows array. Keys: '+Object.keys(d).join(','));
   console.log('Rows received:',d.rows.length);
+  
+  // Always cache the fresh data for the client we actually requested
+  setCachedRows(d.rows, d.newActivity||[], targetClient);
+
+  // CRITICAL: Only update the UI and global state if the user hasn't navigated away
+  if(targetClient !== curClient) {
+    console.log('loadFromSheet: User switched to', curClient, 'ignoring UI update for', targetClient);
+    return;
+  }
+
   // Clear stale action logs when loading fresh contacts for this client
-  Object.keys(actionLog).forEach(k=>delete actionLog[k]);
-  // Cache the fresh data
-  setCachedRows(d.rows, d.newActivity||[], typeof _loadClient!=='undefined' ? _loadClient : curClient);
   Object.keys(actionLog).forEach(k=>delete actionLog[k]);
   contacts=d.rows.map(parseRow);
   // Seed actionLog from sheet's log column so notes survive refresh
