@@ -1112,6 +1112,8 @@ function navBtn(id,ic,lbl){return`<button class="nb" id="nb-${id}" onclick="show
 
 function switchClient(id,btn){
   curClient=id;expandedId=null;
+  // Immediately wipe contacts so previous client's rows can't flash on screen
+  contacts=[];
   // Clear action log (client-specific)
   Object.keys(actionLog).forEach(k=>delete actionLog[k]);
   // Clear pending new contacts — they belong to previous client
@@ -1222,12 +1224,17 @@ function parseRow(r,i){
   const name      = isObj ? (r.name||'')      : (r[0]||'');
   const email     = isObj ? (r.email||'')     : (r[1]||'');
   const _rawCo    = isObj ? (r.company||'') : (r[2]||'');
-  // Strip bad company names: greetings, subject lines, dates
+  // Strip bad company names: greetings, subject lines, email subjects
   const _badCoRx  = /^(Hi |Dear |Re:|Fwd:|Asunto:|Hello |Hola |Best |Kind |Regards|Saludos|Cordiali|Thanks|Cheers|Sincerely)/i;
   const _badCoStr = ['MWC - Deep', ' - Deep Detection', 'Detection'];
+  // Also reject: strings containing %, sentences with 5+ words (email subjects), or ending in ;
+  const _looksLikeSubject = /%/.test(_rawCo) ||
+    _rawCo.trim().endsWith(';') ||
+    (_rawCo.split(' ').length >= 5 && !/\b(capital|partners|management|ventures|fund|group|holdings|office|advisors|investments|asset|wealth|family|associates|bank|trust|equity|credit|financial|technologies|consulting|services|solutions|agency|limited|llc|ltd|inc|co\.)\b/i.test(_rawCo));
   const _isBadCo  = _badCoRx.test(_rawCo) ||
     _badCoStr.some(function(s){ return _rawCo.indexOf(s) > -1; }) ||
-    _rawCo.length > 80;
+    _rawCo.length > 80 ||
+    _looksLikeSubject;
   const company   = _isBadCo ? '' : _rawCo;
   const location  = isObj ? (r.location||'')  : (r[3]||'');
   const status    = isObj ? (r.status||'3 Pre Check') : (r[4]||'3 Pre Check');
@@ -1345,6 +1352,8 @@ function loadDemo(){
     worldspire:[
       {id:201,name:'Heather Bell',email:'heather@vesta-capital.io',company:'Vesta Capital',location:'New York, USA',status:'2 Warm',owner:'BEV',lm:'I am available today 9-9:30am EST and 10-10:30am EST tomorrow morning.',ld:ago(1),desc:'NY-based investment firm. Proactively offered call slots — highest urgency.',action:'Book call TODAY — Heather offered two slots'},
     ],
+    // Placeholder empty demo sets for all other clients — prevents fallback to Preston data
+    morphosis:[], alaluz:[], deepdetect:[], spoko:[], dynam:[], cavallo:[],
   };
   const raw=sets[curClient]||[];
   contacts=raw.map(r=>{
@@ -1932,7 +1941,7 @@ function removeSelectedContacts(){
 
 // ── Cache config ────────────────────────────────────────────────────────────
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours — sync once per day
-const CACHE_VER = 'v3'; // bump to force-clear all caches
+const CACHE_VER = 'v4'; // bumped to force-clear all caches (fix: client data contamination)
 const cacheKey = () => 'bev-cache-' + CACHE_VER + '-' + curClient;
 const cacheTimeKey = () => 'bev-cache-time-' + CACHE_VER + '-' + curClient;
 const scanTimeKey = () => 'bev-scan-ts-' + curClient;
