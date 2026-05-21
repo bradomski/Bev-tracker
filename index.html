@@ -4800,7 +4800,12 @@ function submitAddContact(){
       .then(function(d){
         if(d.ok||d.rowId){
           // Add to local contacts with the returned row ID
-          newContact.id = d.rowId || (Math.max.apply(null, contacts.map(function(c){return c.id||0;})) + 1);
+          let maxId = 0;
+          contacts.forEach(function(c){
+            let n = parseInt(c.id, 10);
+            if(!isNaN(n) && n > maxId) maxId = n;
+          });
+          newContact.id = d.rowId || (maxId + 1);
           contacts.unshift(newContact);
           updateCounts();
           renderLeads();
@@ -4818,7 +4823,12 @@ function submitAddContact(){
       });
   } else {
     // No GAS URL — add locally only
-    newContact.id = Math.max.apply(null, contacts.map(function(c){return c.id||0;})) + 1;
+    let maxId = 0;
+    contacts.forEach(function(c){
+      let n = parseInt(c.id, 10);
+      if(!isNaN(n) && n > maxId) maxId = n;
+    });
+    newContact.id = maxId + 1;
     contacts.unshift(newContact);
     updateCounts();
     renderLeads();
