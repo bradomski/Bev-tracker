@@ -1254,7 +1254,26 @@ function parseRow(r,i){
     _isSingleWord || _isEmailDomain || _looksLikeSubject ||
     _badCoStr.some(function(s){ return _coTrim.indexOf(s) > -1; }) ||
     _coTrim.length > 80;
-  const company = _isBadCo ? '' : _rawCo;
+  const company = (function(){
+    if(!_isBadCo && _coTrim) return _rawCo; // good company name — use as-is
+    // Fallback: infer company from email domain
+    if(!email || !email.includes('@')) return '';
+    try {
+      const _dom = email.split('@')[1].toLowerCase();
+      const _parts = _dom.split('.');
+      // Walk from right, skip known TLDs to find the company domain part
+      const _tlds = new Set(['com','org','net','io','vc','fund','co','uk','de','fr','es','ch','nl','se','dk','no','fi','be','at','it','pt','sg','hk','ae','sa','ca','au','nz','in','br','mx','us','eu','gov','edu','biz','info','jp','cn','ru','tr','pl','cz','hu','ro','gr','il','za']);
+      let _cp = '';
+      for(let _i = _parts.length - 1; _i >= 0; _i--){
+        if(!_tlds.has(_parts[_i])){ _cp = _parts[_i]; break; }
+      }
+      if(!_cp) _cp = _parts[0] || '';
+      // Skip personal / generic email providers
+      if(/^(gmail|yahoo|hotmail|outlook|icloud|live|msn|aol|mail|protonmail|yandex|gmx|zoho|fastmail|me|googlemail|mailcom|inbox|web|pm)$/i.test(_cp)) return '';
+      // Capitalise first letter and return
+      return _cp.charAt(0).toUpperCase() + _cp.slice(1);
+    } catch(e){ return ''; }
+  })();
   const location  = isObj ? (r.location||'')  : (r[3]||'');
   const status    = isObj ? (r.status||'3 Pre Check') : (r[4]||'3 Pre Check');
   const ownerRaw  = isObj ? (r.owner||'BEV')  : (r[5]||'BEV');
